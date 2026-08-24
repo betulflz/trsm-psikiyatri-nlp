@@ -8,3 +8,5 @@ matplotlib>=3.7
 seaborn>=0.12
 nbformat>=5.9
 jupyter>=1.0
+streamlit>=1.28
+ollama>=0.3

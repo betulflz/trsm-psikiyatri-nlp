@@ -5,4 +5,5 @@ __pycache__/
 *.db
 pipeline_run.log
 *.png
+*.npz
 
