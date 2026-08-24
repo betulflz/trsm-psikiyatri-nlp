@@ -12,5 +12,7 @@ def embed_phrases(phrases, model=None):
 
 
 def cluster_phrases(embeddings, min_cluster_size=5):
-    clusterer = HDBSCAN(min_cluster_size=min_cluster_size)
+    n_samples = len(embeddings)
+    effective_min_cluster_size = max(2, min(min_cluster_size, n_samples))
+    clusterer = HDBSCAN(min_cluster_size=effective_min_cluster_size)
     return clusterer.fit_predict(embeddings)
