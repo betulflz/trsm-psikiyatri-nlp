@@ -1,4 +1,8 @@
 .worktrees/
 __pycache__/
 *.pyc
+.claude/
+*.db
+pipeline_run.log
+*.png
 
