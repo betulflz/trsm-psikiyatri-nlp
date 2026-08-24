@@ -13,9 +13,14 @@ def main():
     )
     parser.add_argument("excel_path", help="Ham OCR Excel dosyasının yolu")
     parser.add_argument("db_path", help="Oluşturulacak SQLite veritabanı dosyasının yolu")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Belirtilen veritabanı dosyası zaten mevcutsa üzerine yaz",
+    )
     args = parser.parse_args()
 
-    run_pipeline(args.excel_path, args.db_path)
+    run_pipeline(args.excel_path, args.db_path, overwrite=args.overwrite)
     print(f"Pipeline tamamlandı: {args.db_path}")
 
 

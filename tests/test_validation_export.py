@@ -35,6 +35,31 @@ def test_export_validation_sample_writes_csv_with_header_and_rows(tmp_path):
     assert len(rows) == 3
 
 
+def test_export_validation_sample_sanitizes_formula_like_fields(tmp_path):
+    conn = get_connection(":memory:")
+    create_schema(conn)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')")
+    hasta_id = cur.lastrowid
+    cur.execute(
+        """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
+           VALUES (?, '2024-01-01', 1, '=1+1', 'normal metin')""",
+        (hasta_id,),
+    )
+    conn.commit()
+
+    output_csv = tmp_path / "sample.csv"
+    export_validation_sample(conn, str(output_csv), sample_size=10)
+
+    with open(output_csv, encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+
+    data_row = rows[1]
+    ham_mudahale_metni = data_row[2]
+    assert not ham_mudahale_metni.startswith("=")
+    assert ham_mudahale_metni.startswith("'")
+
+
 def test_export_validation_sample_respects_sample_size(tmp_path):
     conn = get_connection(":memory:")
     create_schema(conn)

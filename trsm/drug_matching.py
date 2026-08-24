@@ -23,7 +23,7 @@ def extract_candidates(text):
             start = words[i][1]
             end = words[i + length - 1][2]
             text_token = ' '.join(w[0] for w in words[i:i + length])
-            if len(text_token) >= 3:  # Filter by minimum length
+            if len(text_token) >= 4:  # Filter by minimum length
                 candidates.append((text_token, start, end))
 
     return candidates

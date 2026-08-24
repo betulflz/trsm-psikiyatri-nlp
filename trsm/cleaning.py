@@ -8,6 +8,8 @@ DATE_PATTERNS = ["%d.%m.%Y", "%d/%m/%Y"]
 def parse_tarih(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
     text = str(value).strip()
     if not text:
         return None

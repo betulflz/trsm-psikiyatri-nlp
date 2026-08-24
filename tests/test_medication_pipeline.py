@@ -18,6 +18,19 @@ def test_extract_medications_from_text_finds_drug_dose_and_frequency():
     assert results[0]["siklik"] == "3x1"
 
 
+def test_extract_medications_from_text_window_does_not_bleed_into_next_drug():
+    index = {"Akineton": "Akineton", "Stilizan": "Stilizan"}
+    text = "Akineton 2mg 1x1, Stilizan 5mg 3x1"
+
+    results = extract_medications_from_text(text, index)
+
+    by_name = {r["ilac_adi_normalize"]: r for r in results}
+    assert by_name["Akineton"]["doz"] == "2mg"
+    assert by_name["Akineton"]["siklik"] == "1x1"
+    assert by_name["Stilizan"]["doz"] == "5mg"
+    assert by_name["Stilizan"]["siklik"] == "3x1"
+
+
 def test_extract_medications_from_text_empty_text_returns_empty_list():
     assert extract_medications_from_text(None, {}) == []
     assert extract_medications_from_text("", {}) == []

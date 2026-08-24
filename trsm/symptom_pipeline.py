@@ -18,10 +18,13 @@ def run_symptom_extraction(conn, min_cluster_size=5, model=None):
     if not phrases:
         return
 
-    embeddings = embed_phrases(phrases, model=model)
-    labels = cluster_phrases(embeddings, min_cluster_size=min_cluster_size)
+    unique_phrases = list(dict.fromkeys(phrases))
+    embeddings = embed_phrases(unique_phrases, model=model)
+    unique_labels = cluster_phrases(embeddings, min_cluster_size=min_cluster_size)
+    label_by_phrase = dict(zip(unique_phrases, unique_labels))
 
-    for ziyaret_id, phrase, label in zip(ziyaret_ids, phrases, labels):
+    for ziyaret_id, phrase in zip(ziyaret_ids, phrases):
+        label = label_by_phrase[phrase]
         kategori = "kategorisiz" if label == -1 else f"cluster_{label}"
         cur.execute(
             "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, ?)",

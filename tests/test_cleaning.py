@@ -1,3 +1,5 @@
+import datetime
+
 import pandas as pd
 from trsm.cleaning import parse_tarih, fill_missing_dates
 
@@ -17,6 +19,14 @@ def test_parse_tarih_missing_returns_none():
 
 def test_parse_tarih_unparseable_returns_none():
     assert parse_tarih("bilinmeyen") is None
+
+
+def test_parse_tarih_datetime_object():
+    assert parse_tarih(datetime.datetime(2024, 8, 9)) == "2024-08-09"
+
+
+def test_parse_tarih_pandas_timestamp():
+    assert parse_tarih(pd.Timestamp("2024-08-09")) == "2024-08-09"
 
 
 def test_fill_missing_dates_forward_fills_per_patient():

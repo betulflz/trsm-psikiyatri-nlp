@@ -39,9 +39,19 @@ def extract_medications_from_text(text, surface_form_index, threshold=85):
             kept.append(m)
             last_by_drug[resmi_ad] = m
 
+    kept_by_start = sorted(kept, key=lambda m: m["start"])
+    next_start_by_id = {
+        id(kept_by_start[i]): kept_by_start[i + 1]["start"]
+        for i in range(len(kept_by_start) - 1)
+    }
+
     results = []
     for m in kept:
-        window = text[m["end"] : m["end"] + WINDOW_SIZE]
+        max_end = m["end"] + WINDOW_SIZE
+        next_start = next_start_by_id.get(id(m))
+        if next_start is not None:
+            max_end = min(max_end, next_start)
+        window = text[m["end"] : max_end]
         doz, siklik = extract_dose_frequency(window)
         results.append({
             "ilac_adi_normalize": m["ilac_adi_normalize"],
