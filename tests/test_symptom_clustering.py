@@ -27,3 +27,15 @@ def test_cluster_phrases_groups_similar_vectors():
     assert labels[0] == labels[1]
     assert labels[2] == labels[3]
     assert labels[0] != labels[2]
+
+
+def test_cluster_phrases_handles_fewer_samples_than_min_cluster_size():
+    embeddings = np.array([
+        [1.0, 0.0],
+        [1.0, 0.1],
+        [0.0, 1.0],
+    ])
+
+    labels = cluster_phrases(embeddings, min_cluster_size=5)
+
+    assert len(labels) == len(embeddings)

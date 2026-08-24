@@ -13,6 +13,10 @@ def embed_phrases(phrases, model=None):
 
 def cluster_phrases(embeddings, min_cluster_size=5):
     n_samples = len(embeddings)
-    effective_min_cluster_size = max(2, min(min_cluster_size, n_samples))
+    # Only clamp when there are fewer samples than requested cluster size; otherwise
+    # pass min_cluster_size through unchanged so HDBSCAN's own validation still applies.
+    effective_min_cluster_size = (
+        max(2, n_samples) if n_samples < min_cluster_size else min_cluster_size
+    )
     clusterer = HDBSCAN(min_cluster_size=effective_min_cluster_size)
     return clusterer.fit_predict(embeddings)
