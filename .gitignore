@@ -4,6 +4,7 @@ __pycache__/
 .claude/
 *.db
 pipeline_run.log
+*.log
 *.png
 *.npz
 

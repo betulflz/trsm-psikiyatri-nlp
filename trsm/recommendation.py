@@ -36,7 +36,7 @@ def generate_summary(query_text, statistics, client=None):
     stat_lines = "\n".join(f"- {s['ilac']}: %{s['yuzde']}" for s in statistics)
     prompt = (
         f"Bir hasta '{query_text}' şikayetiyle başvurdu. Geçmişte benzer semptomlu "
-        f"hastalara verilen ilaçların dağılımı:\n{stat_lines}\n\n"
+        f"ziyaretlerde yazılan reçete kayıtlarının ilaç bazında dağılımı:\n{stat_lines}\n\n"
         "Bu istatistiği 2-3 cümlelik doğal bir Türkçe özet haline getir. "
         "Sadece verilen sayıları kullan, yeni bilgi uydurma."
     )

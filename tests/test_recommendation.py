@@ -77,6 +77,23 @@ def test_generate_summary_calls_client_with_statistics_in_prompt():
     assert "halsizim" in prompt
 
 
+def test_generate_summary_ignores_unexpected_statistics_fields_and_never_leaks_them():
+    client = FakeClient()
+    statistics = [
+        {
+            "ilac": "Stilizan",
+            "sayi": 1,
+            "yuzde": 100.0,
+            "ifade_ham_sizinti": "SENTINEL_RAW_PATIENT_TEXT_MARKER",
+        }
+    ]
+
+    generate_summary("halsizim", statistics, client=client)
+
+    prompt = client.calls[0][1][0]["content"]
+    assert "SENTINEL_RAW_PATIENT_TEXT_MARKER" not in prompt
+
+
 def test_generate_summary_returns_fixed_message_without_calling_client_when_no_data():
     client = FakeClient()
 

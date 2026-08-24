@@ -20,3 +20,10 @@ def test_get_connection_enables_foreign_keys():
     cur = conn.cursor()
     cur.execute("PRAGMA foreign_keys")
     assert cur.fetchone()[0] == 1
+
+
+def test_get_connection_with_check_same_thread_false_works():
+    conn = get_connection(":memory:", check_same_thread=False)
+    cur = conn.cursor()
+    cur.execute("SELECT 1")
+    assert cur.fetchone()[0] == 1
