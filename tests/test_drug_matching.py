@@ -46,3 +46,12 @@ def test_match_drug_below_threshold_returns_none():
     index = {"Stilizan": "Stilizan"}
     result = match_drug("tamamen alakasız kelime", index, threshold=90)
     assert result is None
+
+
+def test_match_drug_short_fragment_does_not_false_positive_on_unrelated_drug():
+    # Regression: WRatio's partial-ratio scoring previously matched "mg tb"
+    # (a fragment of "Stilizan 5mg tb") to "Akineton" at score 85.5, above
+    # the default threshold. Plain ratio must not produce this false positive.
+    index = {"Akineton": "Akineton"}
+    result = match_drug("mg tb", index)
+    assert result is None

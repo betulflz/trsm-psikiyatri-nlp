@@ -41,7 +41,12 @@ def match_drug(candidate, surface_form_index, threshold=85):
     choices = list(surface_form_index.keys())
     if not choices:
         return None
-    best = process.extractOne(candidate, choices, scorer=fuzz.WRatio)
+    # fuzz.ratio (not WRatio) is deliberate: WRatio's partial-ratio component
+    # scores short fragments (e.g. "mg tb") as strong substring matches against
+    # unrelated longer drug names (e.g. "Akineton"), producing false positives
+    # that grow with dictionary size. Plain ratio requires the strings to be
+    # similar in full, not just as a substring.
+    best = process.extractOne(candidate, choices, scorer=fuzz.ratio)
     if best is None:
         return None
     matched_form, score, _ = best
