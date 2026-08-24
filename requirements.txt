@@ -4,3 +4,7 @@ rapidfuzz>=3.5
 sentence-transformers>=2.2
 scikit-learn>=1.3
 pytest>=7.4
+matplotlib>=3.7
+seaborn>=0.12
+nbformat>=5.9
+jupyter>=1.0
