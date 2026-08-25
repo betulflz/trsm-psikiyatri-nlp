@@ -1,8 +1,8 @@
 from .symptom_clustering import cluster_phrases, embed_phrases
-from .symptom_extraction import split_into_phrases
+from .symptom_extraction import is_probable_symptom, split_into_phrases
 
 
-def run_symptom_extraction(conn, min_cluster_size=5, model=None):
+def run_symptom_extraction(conn, min_cluster_size=5, model=None, surface_form_index=None):
     cur = conn.cursor()
     cur.execute("SELECT id, ham_mudahale_metni, ham_sonuc_metni FROM ziyaret")
     rows = cur.fetchall()
@@ -12,6 +12,8 @@ def run_symptom_extraction(conn, min_cluster_size=5, model=None):
     for ziyaret_id, mudahale, sonuc in rows:
         combined = " ".join(t for t in [mudahale, sonuc] if t)
         for phrase in split_into_phrases(combined):
+            if not is_probable_symptom(phrase, surface_form_index):
+                continue
             ziyaret_ids.append(ziyaret_id)
             phrases.append(phrase)
 

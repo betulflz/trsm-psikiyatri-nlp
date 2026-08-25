@@ -39,3 +39,19 @@ def test_cluster_phrases_handles_fewer_samples_than_min_cluster_size():
     labels = cluster_phrases(embeddings, min_cluster_size=5)
 
     assert len(labels) == len(embeddings)
+
+
+def test_cluster_phrases_handles_single_sample_without_crashing():
+    embeddings = np.array([[1.0, 0.0]])
+
+    labels = cluster_phrases(embeddings, min_cluster_size=5)
+
+    assert list(labels) == [-1]
+
+
+def test_cluster_phrases_handles_zero_samples():
+    embeddings = np.empty((0, 2))
+
+    labels = cluster_phrases(embeddings, min_cluster_size=5)
+
+    assert list(labels) == []

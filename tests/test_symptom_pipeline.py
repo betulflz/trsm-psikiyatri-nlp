@@ -77,3 +77,27 @@ def test_run_symptom_extraction_deduplicates_identical_phrases_before_clustering
     assert len(rows) == 3
     uyku_kategoriler = {kategori for ifade, kategori in rows if ifade == "Uyku iyi"}
     assert len(uyku_kategoriler) == 1
+
+
+def test_run_symptom_extraction_filters_out_non_symptom_phrases():
+    conn = get_connection(":memory:")
+    create_schema(conn)
+    _insert_ziyaret(
+        conn,
+        "a.pdf",
+        "Aaaaa bir durum, Aaaaa iki durum, 005 Yayın Tarihi, Bbbbb bir durum, Bbbbb iki durum.",
+    )
+    _insert_ziyaret(
+        conn,
+        "b.pdf",
+        "Aaaaa bir durum, Aaaaa iki durum, 005 Yayın Tarihi, Bbbbb bir durum, Bbbbb iki durum.",
+    )
+
+    run_symptom_extraction(conn, min_cluster_size=2, model=FakeModel())
+
+    cur = conn.cursor()
+    cur.execute("SELECT ifade_ham FROM semptom_kaydi")
+    ifadeler = [row[0] for row in cur.fetchall()]
+
+    assert "005 Yayın Tarihi" not in ifadeler
+    assert ifadeler.count("Aaaaa bir durum") == 2

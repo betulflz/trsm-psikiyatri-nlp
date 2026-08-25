@@ -43,6 +43,6 @@ def run_pipeline(
         surface_form_index = build_surface_form_index(drug_dictionary)
         run_medication_extraction(conn, surface_form_index)
 
-        run_symptom_extraction(conn, model=symptom_model)
+        run_symptom_extraction(conn, model=symptom_model, surface_form_index=surface_form_index)
     finally:
         conn.close()
