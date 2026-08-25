@@ -7,4 +7,5 @@ pipeline_run.log
 *.log
 *.png
 *.npz
+dogrulama_ornegi.csv
 
