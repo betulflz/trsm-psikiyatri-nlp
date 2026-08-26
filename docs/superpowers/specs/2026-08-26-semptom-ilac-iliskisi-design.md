@@ -40,7 +40,7 @@ birden fazla Türkçe örnek ifade (arama sorgusu olarak kullanılacak):
 | Uyku bozukluğu | uykusuzluk, uyku düzensizliği, aşırı uyku hali |
 | Öfke / ajitasyon | öfke nöbeti, ajitasyon, saldırganlık, huzursuzluk |
 | Anksiyete / gerginlik | anksiyete, gerginlik, kaygı, endişe hali |
-| Depresif belirtiler | çökkünlük, isteksizlik, mutsuzluk, enerji azlığı |
+| Depresif belirtiler | çökkünlük, isteksizlik, mutsuzluk, enerji azlığı, ağlama, üzüntü |
 | Manik / taşkın belirtiler | taşkınlık, aşırı enerji, hızlı konuşma, elevasyon |
 | Halüsinasyon / hezeyan | halüsinasyon, sesler duyma, hezeyan, şüphecilik |
 | İştah / kilo değişimi | iştahsızlık, aşırı iştah, kilo alımı, kilo kaybı |
@@ -53,14 +53,23 @@ netleştirilecek; ekleme/çıkarma serbest.
 
 ## Yöntem
 
-1. **Kategori embedding'i:** Her kategorinin örnek ifadeleri
-   `paraphrase-multilingual-MiniLM-L12-v2` ile ayrı ayrı encode edilir, ortalaması
-   alınarak tek bir "kategori sorgu vektörü" elde edilir.
-2. **Eşleşen ziyaretler:** `find_similar_phrases` ile her kategori vektörü,
-   `data/symptom_index.npz`'deki tüm 96.693 kayda karşı taranır
-   (`min_similarity=0.75`, `top_n` yüksek bir değer — örn. 500 — çünkü burada
-   amaç "en yakın 5" değil, kategoriye giren tüm ziyaretler). Eşleşen
-   kayıtların `ziyaret_id`'leri tekilleştirilir.
+1. **Kategori embedding'i — tohum başına ayrı sorgu (ortalama DEĞİL):** İlk
+   tasarımda kategorinin tüm örnek ifadelerinin embedding ortalaması tek bir
+   "kategori sorgu vektörü" olarak kullanılıyordu. Gerçek veriyle test edilince
+   bunun ciddi bir sulandırma sorunu olduğu görüldü: "mutsuzum ağlayasım
+   geliyor" gibi konuşma diline yakın bir ifade, ortalama vektöre sadece 0.575
+   benzerlik veriyordu (eşiğin altında, kategoriye hiç girmiyordu), ama aynı
+   ifade tek tek tohumlarla karşılaştırılınca "üzüntü" tohumuna 0.836
+   benzerlik veriyordu. Bu yüzden her tohum ifade **ayrı bir sorgu** olarak
+   çalıştırılır (max-pooling / birleşim mantığı): bir korpus ifadesi
+   kategorinin **herhangi bir** tohumuna eşik üstü benzerse, o ifadenin bağlı
+   olduğu ziyaret kategoriye dahil edilir.
+2. **Eşleşen ziyaretler:** Her kategori için, kategorinin tüm tohum
+   ifadeleri tek tek `find_similar_phrases` ile `data/symptom_index.npz`'deki
+   tüm 96.693 kayda karşı taranır (`min_similarity=0.75`, `top_n` yüksek bir
+   değer — örn. 500 — çünkü burada amaç "en yakın 5" değil, kategoriye giren
+   tüm ziyaretler). Tohum başına dönen eşleşmelerin `ziyaret_id`'leri
+   kategori bazında birleştirilip tekilleştirilir.
 3. **İlaç istatistiği:** Her kategorinin ziyaret_id kümesi
    `compute_drug_statistics(conn, ziyaret_ids, guven_esigi=90)` ile ilaç
    dağılımına çevrilir (mevcut trend notebook'uyla tutarlı güven eşiği).
