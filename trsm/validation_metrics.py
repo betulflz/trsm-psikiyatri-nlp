@@ -1,6 +1,8 @@
 import csv
 import re
 
+from .drug_matching import build_surface_form_index, match_drug
+
 MISSING_DRUGS_PATTERN = re.compile(r"^yanlış[,\s]+(.+?)\s+eksik$", re.IGNORECASE)
 
 
@@ -25,7 +27,18 @@ def _drugs_in_row(sistem_ilac_bulgusu):
     return names
 
 
-def compute_drug_precision_recall(csv_path):
+def _resolve_official_name(noted_name, surface_form_index):
+    if not surface_form_index:
+        return noted_name
+    match = match_drug(noted_name, surface_form_index)
+    return match[0] if match else noted_name
+
+
+def compute_drug_precision_recall(csv_path, drug_dictionary=None):
+    surface_form_index = (
+        build_surface_form_index(drug_dictionary) if drug_dictionary else None
+    )
+
     tp = 0
     fp = 0
     fn = 0
@@ -38,13 +51,22 @@ def compute_drug_precision_recall(csv_path):
     for row in rows:
         note = row["ilac_dogru_mu"]
         found_drugs = _drugs_in_row(row["sistem_ilac_bulgusu"])
-        missing = parse_missing_drugs(note)
-        if missing is None:
+        noted_missing = parse_missing_drugs(note)
+        if noted_missing is None:
             unparseable_notes.append(note)
             continue
+
         tp += len(found_drugs)
-        fn += len(missing)
-        missing_drugs.extend(missing)
+        for noted_name in noted_missing:
+            official_name = _resolve_official_name(noted_name, surface_form_index)
+            if official_name in found_drugs:
+                # Already fixed since the note was written (e.g. a later
+                # dictionary/pipeline update now matches it under its
+                # official name) - the system's finding already counted
+                # toward tp above, so this is not a current miss.
+                continue
+            fn += 1
+            missing_drugs.append(noted_name)
 
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0

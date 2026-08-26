@@ -5,9 +5,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from trsm.drug_dictionary import load_drug_dictionary
 from trsm.validation_metrics import compute_drug_precision_recall, format_report
 
 DEFAULT_REPORT_DIR = Path(__file__).parent.parent / "docs" / "validation_reports"
+DEFAULT_DRUG_DICTIONARY_PATH = Path(__file__).parent.parent / "data" / "ilac_sozluk_seed.csv"
 
 
 def main():
@@ -20,9 +22,15 @@ def main():
         default=str(DEFAULT_REPORT_DIR),
         help=f"Rapor dosyasının yazılacağı klasör (varsayılan: {DEFAULT_REPORT_DIR})",
     )
+    parser.add_argument(
+        "--drug-dictionary",
+        default=str(DEFAULT_DRUG_DICTIONARY_PATH),
+        help=f"İlaç sözlüğü CSV yolu (varsayılan: {DEFAULT_DRUG_DICTIONARY_PATH})",
+    )
     args = parser.parse_args()
 
-    result = compute_drug_precision_recall(args.csv_path)
+    drug_dictionary = load_drug_dictionary(args.drug_dictionary)
+    result = compute_drug_precision_recall(args.csv_path, drug_dictionary=drug_dictionary)
     report = format_report(result, source_csv=args.csv_path)
 
     print(report)

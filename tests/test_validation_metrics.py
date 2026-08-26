@@ -74,6 +74,23 @@ def test_compute_drug_precision_recall_counts_missing_drug_as_false_negative(tmp
     assert result["recall"] == 2 / 3
 
 
+def test_compute_drug_precision_recall_resolves_noted_drug_against_current_findings(tmp_path):
+    # The note says "Olaxinn eksik" using the old OCR spelling, but the system
+    # now finds it under its official dictionary name "Olanzapin" - this
+    # should count as a TP (already fixed since the note was written), not FN.
+    csv_path = _write_csv(tmp_path, [
+        {
+            "sistem_ilac_bulgusu": "Olanzapin (100.0) | Xeplion (100.0)",
+            "ilac_dogru_mu": "Yanlış,Olaxinn eksik",
+        },
+    ])
+    drug_dictionary = {"Olanzapin": ["Olanzapin", "Olaxinn"], "Xeplion": ["Xeplion"]}
+    result = compute_drug_precision_recall(csv_path, drug_dictionary=drug_dictionary)
+    assert result["tp"] == 2
+    assert result["fn"] == 0
+    assert result["missing_drugs"] == []
+
+
 def test_compute_drug_precision_recall_reports_unparseable_notes_separately(tmp_path):
     csv_path = _write_csv(tmp_path, [
         {"sistem_ilac_bulgusu": "Akineton (100.0)", "ilac_dogru_mu": "garip bir not"},
