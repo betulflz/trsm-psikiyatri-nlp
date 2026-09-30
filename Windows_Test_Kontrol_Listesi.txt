@@ -1,0 +1,18 @@
+Windows Ilk Calistirma Kontrol Listesi
+======================================
+
+1. Zip Masaustune tamamen cikarildi mi?
+2. Baslat.bat cift tiklaninca Windows surumu, 64-bit bilgisi ve RAM bilgisi gorundu mu?
+3. Ilk kurulum tamamlandi mi? Siyah pencerede hata varsa ekran goruntusu alin.
+4. Tarayici otomatik olarak http://127.0.0.1:8765 adresini acti mi?
+5. Veri Seti, Kullanım Trendi, Semptom-İlaç İlişkisi ve Canlı Sorgu sekmeleri acildi mi?
+6. Canlı Sorgu ekraninda yas, cinsiyet ve kisa bir yakinma girilince sonuc gorundu mu?
+7. Qwen yoksa butonlar pasif ve aciklama metni gorunuyor mu?
+8. Ollama varsa Qwen butonlari kullanilabilir hale geliyor mu?
+
+Sorun olursa bize su bilgileri iletin:
+- Siyah pencerenin tumunun ekran goruntusu
+- Tarayicidaki hata metni ve adres cubugundaki adres
+- Windows surumu ve RAM bilgisi
+- Sorun ilk kurulumda mi, yoksa uygulama acildiktan sonra mi oldu?
+- c10.dll veya DLL load failed gorulurse bu hata metninin ekran goruntusu

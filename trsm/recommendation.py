@@ -2,6 +2,8 @@ import os
 import re
 import json
 
+from .ollama_support import get_ollama_client
+
 
 LLM_MODEL_NAME = os.getenv("TRSM_LLM_MODEL", "qwen2.5:3b")
 
@@ -61,8 +63,9 @@ def generate_summary(query_text, statistics, client=None, demographic_context=No
     )
 
     if client is None:
-        import ollama
-        client = ollama
+        client = get_ollama_client()
+    if client is None:
+        return VERI_YOK_MESAJI
 
     response = client.chat(model=LLM_MODEL_NAME, messages=[{"role": "user", "content": prompt}])
     return response["message"]["content"]
@@ -180,8 +183,9 @@ def generate_explanatory_note(evidence, client=None, return_source=False):
     if not evidence["temalar"] or not evidence["uyumlu_ziyaret_sayisi"]:
         return result(fallback, "sabit")
     if client is None:
-        import ollama
-        client = ollama
+        client = get_ollama_client()
+    if client is None:
+        return result(fallback, "sabit")
     try:
         response = client.chat(
             model=LLM_MODEL_NAME,

@@ -44,7 +44,7 @@
   }
   a { color: inherit; }
   h1, h2, h3 { font-family: "Fraunces", ui-serif, Georgia, serif; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
-  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
   .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
 
   .masthead { max-width: 1040px; margin: 0 auto; padding: 44px 28px 32px; display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -274,9 +274,10 @@
           <span class="eyebrow" id="query-drug-label">İlaç dağılımı</span>
           <div id="query-drugs" style="margin-top:10px"></div>
           <div class="evidence-box" id="evidence-box"></div>
-          <button type="button" class="btn ghost" id="second-opinion-btn" style="margin-top:14px;width:100%">Qwen ile ikinci yöntem kontrolü</button>
+          <button type="button" class="btn ghost" id="second-opinion-btn" style="margin-top:14px;width:100%" disabled>Qwen ile ikinci yöntem kontrolü</button>
           <div class="summary-box" id="second-opinion-box"></div>
-          <button type="button" class="btn ghost" id="ozet-btn" style="margin-top:14px;width:100%">Qwen ile açıklayıcı not üret</button>
+          <button type="button" class="btn ghost" id="ozet-btn" style="margin-top:14px;width:100%" disabled>Qwen ile açıklayıcı not üret</button>
+          <p id="qwen-status" class="quality-note" style="margin:8px 0 0">Qwen durumu kontrol ediliyor&hellip;</p>
           <div class="summary-box" id="summary-box"></div>
         </div>
       </div>
@@ -445,6 +446,10 @@
     }[type] || 'İlaç kaydındaki değişim';
   }
   getJSON('/api/tedavi-gecis-istatistikleri').then(data => {
+    if (!data.mevcut && data.mesaj) {
+      document.getElementById('transition-stats').textContent = data.mesaj;
+      return;
+    }
     const rows = data.gecisler.filter(row =>
       row.semptom_kaydi_olan_takip_sayisi >= 3 && row.gecis !== 'Doz / sıklık değişimi'
     );
@@ -539,8 +544,22 @@
   const summaryBox = document.getElementById('summary-box');
   const secondOpinionBox = document.getElementById('second-opinion-box');
   const evidenceBox = document.getElementById('evidence-box');
+  const qwenStatus = document.getElementById('qwen-status');
   let lastQuery = null;
   const escapeHTML = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+
+  getJSON('/api/status').then(data => {
+    const ready = !!(data.qwen?.kullanilabilir && data.qwen?.model_yuklu);
+    ozetBtn.disabled = !ready;
+    secondOpinionBtn.disabled = !ready;
+    qwenStatus.textContent = ready
+      ? 'Qwen yerel olarak kullanılabilir.'
+      : 'Qwen şu an kullanılamıyor (Ollama kurulu değil veya çalışmıyor). Ana analiz bundan etkilenmez.';
+    qwenStatus.classList.toggle('warn', !ready);
+  }).catch(() => {
+    qwenStatus.textContent = 'Qwen şu an kullanılamıyor (Ollama kurulu değil veya çalışmıyor). Ana analiz bundan etkilenmez.';
+    qwenStatus.classList.add('warn');
+  });
 
   async function runQuery(text, ozetIste) {
     submitBtn.disabled = true;
@@ -625,7 +644,7 @@
   ozetBtn.addEventListener('click', async () => {
     if (!lastQuery) return;
     ozetBtn.disabled = true;
-    ozetBtn.innerHTML = '<span class="spinner" style="border-color:color-mix(in oklab, var(--accent) 40%, transparent);border-top-color:var(--accent)"></span>Qwen notu üretiyor&hellip;';
+    ozetBtn.innerHTML = '<span class="spinner" style="border-color:color-mix(in oklab, var(--accent) 40%, transparent);border-top-color:var(--accent)"></span>Qwen düşünüyor; eski bilgisayarlarda bir dakika kadar sürebilir&hellip;';
     try {
       const data = await getJSON('/api/sorgu', {
         method: 'POST',
@@ -649,7 +668,7 @@
   secondOpinionBtn.addEventListener('click', async () => {
     if (!lastQuery) return;
     secondOpinionBtn.disabled = true;
-    secondOpinionBtn.innerHTML = '<span class="spinner"></span>Yerel Qwen kontrol ediyor&hellip;';
+    secondOpinionBtn.innerHTML = '<span class="spinner"></span>Qwen düşünüyor; eski bilgisayarlarda bir dakika kadar sürebilir&hellip;';
     try {
       const data = await getJSON('/api/ikinci-gorus', {
         method: 'POST',

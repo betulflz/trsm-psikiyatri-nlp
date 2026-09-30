@@ -1,20 +1,20 @@
-"""TRSM demo sunucusu — gerçek trsm.db ve data/symptom_index.npz üzerinde
-çalışan hafif bir API. Statik/dondurulmuş veri yok; her istek gerçek
-veritabanı sorgusu veya gerçek embedding araması çalıştırır.
+"""TRSM yerel demo sunucusu.
 
-Çalıştırma: /opt/anaconda3/bin/python3 demo_server.py
-Sonra: http://localhost:5000
+Çalıştırma: ``uv run python demo_server.py``
+Sonra: http://127.0.0.1:8765
 """
 import sys
 import json
+import os
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
-from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from trsm.db import get_connection
+from trsm.model_loader import load_local_minilm
+from trsm.ollama_support import qwen_status
 from trsm.recommendation import (
     build_evidence_summary,
     compute_drug_statistics,
@@ -31,18 +31,20 @@ from trsm.transparent_symptom_query import (
 )
 from trsm.treatment_response_analysis import build_patient_transition_analysis
 from trsm.treatment_timeline import list_treatment_change_candidates
+from trsm.runtime_paths import runtime_data_paths
 
-DB_PATH = "trsm.db"
-INDEX_PATH = "data/symptom_index.npz"
-TRANSITION_STATS_PATH = Path("data/tedavi_gecis_istatistikleri.json")
-MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+PATHS = runtime_data_paths()
+DB_PATH = PATHS["db"]
+INDEX_PATH = PATHS["index"]
+TRANSITION_STATS_PATH = PATHS["transition_stats"]
 GUVEN_ESIGI = 90
 MIN_SIMILARITY = 0.75
+SERVER_PORT = int(os.getenv("TRSM_PORT", "8765"))
 
 app = Flask(__name__, static_folder=None)
 
 print("Model yükleniyor...")
-model = SentenceTransformer(MODEL_NAME)
+model = load_local_minilm()
 print("Semptom indeksi yükleniyor...")
 embeddings, ziyaret_ids, phrases = load_symptom_index(INDEX_PATH)
 category_seed_embeddings = build_category_seed_embeddings(model)
@@ -175,8 +177,14 @@ def api_kategoriler():
 @app.route("/api/tedavi-gecis-istatistikleri")
 def api_tedavi_gecis_istatistikleri():
     if not TRANSITION_STATS_PATH.exists():
-        return jsonify({"hata": "Geçiş istatistiği henüz hazırlanmadı."}), 404
+        return jsonify({"mevcut": False, "mesaj": "Bu veri setinde mevcut değil."})
     return jsonify(json.loads(TRANSITION_STATS_PATH.read_text(encoding="utf-8")))
+
+
+@app.route("/api/status")
+def api_status():
+    qwen = qwen_status("qwen2.5:3b")
+    return jsonify({"qwen": qwen})
 
 
 @app.route("/api/tedavi-gecis-hastalar")
@@ -252,6 +260,9 @@ def api_ikinci_gorus():
     query = (body.get("sorgu") or "").strip()
     if not query:
         return jsonify({"hata": "Sorgu boş olamaz."}), 400
+    qwen = qwen_status("qwen2.5:3b")
+    if not (qwen["kullanilabilir"] and qwen["model_yuklu"]):
+        return jsonify({"hata": "Qwen şu an kullanılamıyor."}), 503
     classified = classify_symptom_clauses(query, model, category_seed_embeddings)
     if contains_high_risk_expression([row["ifade"] for row in classified]):
         return jsonify({
@@ -262,4 +273,4 @@ def api_ikinci_gorus():
 
 if __name__ == "__main__":
     compute_kategoriler()  # başlangıçta bir kez hesapla, ilk istekte gecikme olmasın
-    app.run(host="127.0.0.1", port=8765, debug=False)
+    app.run(host="127.0.0.1", port=SERVER_PORT, debug=False)

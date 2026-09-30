@@ -1,0 +1,30 @@
+TRSM Demo Kurulumu
+===================
+
+1. Zip dosyasini Masaustune veya istediginiz bir klasore tamamen cikariniz.
+   Zip dosyasinin icinden calistirmayiniz.
+
+2. Windows kullanicilari Baslat.bat dosyasina cift tiklasin.
+   "Windows bilgisayarinizi korudu" uyarisi gorunurse:
+   Ek bilgi -> Yine de calistir seciniz.
+
+3. Ilk acilis birkac dakika surebilir. Kurulum tamamlaninca tarayici kendiliginden acilir.
+
+4. Qwen istege baglidir. Bilgisayarinizda 8 GB veya daha fazla RAM varsa
+   ollama.com adresinden Ollama kurulmasi onerilir. Kurmazsaniz da ana analiz calisir.
+
+5. Uygulamayi kapatmak icin siyah pencereyi kapatiniz.
+
+Sik gorulen sorunlar
+--------------------
+- Tarayici acilmadiysa: tarayiciya http://127.0.0.1:8765 yaziniz.
+- Ilk kurulum hata verdiyse: internet baglantisini kontrol edip Baslat.bat'i yeniden calistiriniz.
+- c10.dll veya "DLL load failed" hatasi varsa: Microsoft Visual C++ Redistributable x64
+  paketini kurunuz: https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Qwen kullanilamiyorsa: ana analiz calismaya devam eder. Ollama'nin kurulu ve calisir
+  oldugunu kontrol ediniz.
+
+Mac kullanicilari
+-----------------
+Baslat.command dosyasina sag tiklayip Ac secenegini kullaniniz. Ilk acilista macOS
+onay isteyebilir.

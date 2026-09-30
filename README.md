@@ -1,49 +1,49 @@
-# TRSM İlaç Öneri Asistanı
+# TRSM İlaç Analiz Demosu
 
-Geçmiş hasta ziyaretlerindeki semptom benzerliği ile seçilen yaş ve cinsiyet
-profilini birlikte kullanan, istatistiksel ilaç-kayıt özeti üreten tamamen yerel
-bir Streamlit uygulaması. Hiçbir hasta verisi bu makineden dışarı gönderilmez;
-özet metni yerel bir Ollama LLM'i ile üretilir.
+Geçmiş ziyaret kayıtlarındaki semptom benzerliği ile yaş ve cinsiyet profilini
+birlikte kullanan, yerel istatistiksel ilaç-kayıt özeti demosu.
 
-## Kurulum
+## Hoca için çalıştırma
 
-```bash
-pip install -r requirements.txt
-```
+Dağıtım zipini tamamen bir klasöre çıkarın ve Windows'ta `Baslat.bat`, macOS'ta
+`Baslat.command` dosyasını çalıştırın. Ayrıntılı, teknik olmayan yönergeler
+paketteki `KURULUM.txt` dosyasındadır.
 
-Yerel LLM'i çalıştırmak için Ollama gereklidir:
+Uygulama yerel olarak `http://127.0.0.1:8765` adresinde açılır. Qwen/Ollama
+kurulu değilse ana analiz çalışmaya devam eder; yalnızca Qwen düğmeleri pasif
+kalır.
 
-```bash
-brew services start ollama   # veya: ollama serve
-ollama pull gemma2:2b
-```
+## Geliştirici çalıştırması
 
-### Veri hazırlığı
-
-1. Ham OCR Excel dosyasından SQLite veritabanını oluşturun:
-
-   ```bash
-   python3 scripts/run_pipeline.py <excel_yolu> trsm.db
-   ```
-
-2. Semptom benzerlik indeksini (embedding) oluşturun:
-
-   ```bash
-   python3 scripts/build_symptom_index.py trsm.db data/symptom_index.npz
-   ```
-
-Her iki dosya da (`trsm.db`, `data/symptom_index.npz`) `.gitignore` ile
-izlenmez; uygulamayı çalıştırmadan önce yukarıdaki adımları tamamlamanız
-gerekir.
-
-## Çalıştırma
+Geliştirme makinesinde uv ile:
 
 ```bash
-python3 -m streamlit run app.py
+uv sync --no-dev
+uv run python demo_server.py
 ```
 
-Not: Bu makinede `streamlit` konsol komutu (shim) bozuk olabilir; bu yüzden
-`python3 -m streamlit run app.py` biçimi kullanılmalıdır.
+MiniLM modeli proje içindeki `models/paraphrase-multilingual-MiniLM-L12-v2/`
+klasöründen çevrimdışı yüklenir. Bu klasörü ilk kez hazırlamak için:
+
+```bash
+uv run python scripts/download_model.py
+```
+
+## Veri hazırlığı
+
+Ham OCR Excel dosyasından veritabanı oluşturma, embedding indeksi üretme ve
+doğrulama araçları `scripts/` altındadır. Bunlar dağıtım paketine dahil edilmez.
+Gerçek veri dosyaları Git dışında tutulur.
+
+## Eski / geliştirici Streamlit arayüzü
+
+`app.py` Streamlit arayüzü korunmaktadır; dağıtım paketinin bir parçası değildir.
+Geliştirici kullanımı için gerekli ek paketlerle şu komut kullanılabilir:
+
+```bash
+uv sync --group dev
+uv run streamlit run app.py
+```
 
 Uygulama, `trsm.db` veya `data/symptom_index.npz` bulunamazsa hangi komutu
 çalıştırmanız gerektiğini belirten bir hata mesajı gösterip duracaktır.
