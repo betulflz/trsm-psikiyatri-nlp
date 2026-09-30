@@ -1,7 +1,7 @@
 Windows Ilk Calistirma Kontrol Listesi
 ======================================
 
-1. Zip Masaustune tamamen cikarildi mi?
+1. Zip dogrudan C:\ surucusune tamamen cikarildi mi? (C:\TRSM_Demo klasoru olusmali)
 2. Baslat.bat cift tiklaninca Windows surumu, 64-bit bilgisi ve RAM bilgisi gorundu mu?
 3. Ilk kurulum tamamlandi mi? Siyah pencerede hata varsa ekran goruntusu alin.
 4. Tarayici otomatik olarak http://127.0.0.1:8765 adresini acti mi?
