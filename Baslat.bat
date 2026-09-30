@@ -24,6 +24,20 @@ if errorlevel 1 (
   echo Bu uygulama Windows 10 veya daha yeni, 64-bit bir bilgisayar gerektirir.
   goto :finish
 )
+
+set "PATH_RISK=0"
+for /f %%A in ('powershell -NoProfile -Command "$p=(Get-Location).Path; if ($p.IndexOf('OneDrive',[System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or $p.Length -gt 60) { '1' } else { '0' }"') do set "PATH_RISK=%%A"
+if "%PATH_RISK%"=="1" (
+  echo.
+  echo Uyari: Uygulama OneDrive'a bagli ya da cok uzun bir klasor yolunda duruyor.
+  echo Bu, kurulumun yavaslamasina veya hata vermesine yol acabilir.
+  echo Onerilen: TRSM_Demo klasorunu dogrudan C:\ surucusune tasiyin
+  echo ^(C:\TRSM_Demo^) ve Baslat.bat'i oradan calistirin.
+  echo.
+  echo Yine de devam etmek icin bir tusa basin, cikmak icin pencereyi kapatin.
+  pause >nul
+)
+
 powershell -NoProfile -Command "$ram=(Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize/1MB; if ($ram -lt 8) { exit 1 }"
 if errorlevel 1 echo Uyari: RAM 8 GB'tan az. Qwen ozelligi yavas calisabilir; ana analiz yine calisir.
 
@@ -31,7 +45,7 @@ where uv >nul 2>nul
 if errorlevel 1 (
   echo.
   echo Ilk kurulum icin uv araci yukleniyor...
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://astral.sh/uv/install.ps1 | iex"
   set "PATH=%USERPROFILE%\.local\bin;%USERPROFILE%\.cargo\bin;%PATH%"
 )
 where uv >nul 2>nul
@@ -60,8 +74,11 @@ if errorlevel 1 (
   )
 )
 
-start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$port=$env:TRSM_PORT; $limit=(Get-Date).AddSeconds(45); while((Get-Date) -lt $limit) { try { Invoke-WebRequest -UseBasicParsing ('http://127.0.0.1:'+$port+'/api/status') -TimeoutSec 2 | Out-Null; Start-Process ('http://127.0.0.1:'+$port); exit } catch { Start-Sleep -Seconds 1 } }"
+start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$port=$env:TRSM_PORT; $limit=(Get-Date).AddSeconds(300); while((Get-Date) -lt $limit) { try { Invoke-WebRequest -UseBasicParsing ('http://127.0.0.1:'+$port+'/api/status') -TimeoutSec 2 | Out-Null; Start-Process ('http://127.0.0.1:'+$port); exit } catch { Start-Sleep -Seconds 1 } }"
 echo Uygulama aciliyor; tarayici birazdan kendiliginden acilacak.
+echo Tarayici birkac dakika icinde acilmazsa tarayiciya su adresi yazin:
+echo http://127.0.0.1:%TRSM_PORT%
+echo Bu pencereyi kapatmayin; kapatirsaniz uygulama da kapanir.
 uv run --no-sync python demo_server.py
 set "APP_EXIT=%ERRORLEVEL%"
 if not "%APP_EXIT%"=="0" (
