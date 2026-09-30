@@ -37,6 +37,20 @@ def build_surface_form_index(drug_dictionary):
     return index
 
 
+def build_surface_form_index_from_db(conn):
+    """Load the local medication dictionary in the same form as the pipeline.
+
+    Keeping this here lets later analysis steps recognise medication lines in
+    the already-built database; those lines must not be used as symptom-search
+    evidence simply because an OCR split created a separate phrase.
+    """
+    rows = conn.execute(
+        """SELECT s.resmi_ad, v.varyasyon
+           FROM ilac_sozluk s JOIN ilac_varyasyon v ON v.ilac_sozluk_id = s.id"""
+    ).fetchall()
+    return {variation: official for official, variation in rows}
+
+
 def match_drug(candidate, surface_form_index, threshold=85):
     choices = list(surface_form_index.keys())
     if not choices:

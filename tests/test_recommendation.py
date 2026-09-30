@@ -1,5 +1,14 @@
+import json
+
 from trsm.db import get_connection, create_schema
-from trsm.recommendation import compute_drug_statistics, generate_summary
+from trsm.recommendation import (
+    TIBBI_UYARI,
+    build_contextual_explanatory_note,
+    build_evidence_summary,
+    compute_drug_statistics,
+    generate_explanatory_note,
+    generate_summary,
+)
 
 
 def _insert_medication(conn, ziyaret_id_seed, ilac_adi, eslesme_guveni):
@@ -101,3 +110,54 @@ def test_generate_summary_returns_fixed_message_without_calling_client_when_no_d
 
     assert "bulunamadı" in result
     assert len(client.calls) == 0
+
+
+def _transparent_result():
+    return {
+        "kategoriler": [{"kategori": "Uyku bozukluğu"}, {"kategori": "Anksiyete / gerginlik"}],
+        "birlesik": {
+            "yas": 25,
+            "yas_grubu": "18-29",
+            "cinsiyet": "Erkek",
+            "uyumlu_hasta_sayisi": 17,
+            "uyumlu_ziyaret_sayisi": 41,
+            "kucuk_orneklem": False,
+            "ilaclar": [{"ilac": "Akineton", "sayi": 7, "yuzde": 17.1}],
+        },
+    }
+
+
+def test_evidence_summary_is_deterministic_and_includes_the_fixed_warning():
+    evidence = build_evidence_summary(_transparent_result())
+
+    assert "25 yaş (18-29), Erkek" in evidence["metin"]
+    assert "17 kişi ve 41 ziyaret" in evidence["metin"]
+    assert "Akineton %17.1" in evidence["metin"]
+    assert evidence["uyari"] == TIBBI_UYARI
+
+
+class NoteClient:
+    def __init__(self, text):
+        self.text = text
+        self.calls = []
+
+    def chat(self, model, messages, **kwargs):
+        self.calls.append((model, messages))
+        return {"message": {"content": json.dumps({"note": self.text})}}
+
+
+def test_explanatory_note_never_receives_raw_query_and_falls_back_when_unsafe():
+    evidence = build_evidence_summary(_transparent_result())
+    client = NoteClient(build_contextual_explanatory_note(evidence))
+
+    note = generate_explanatory_note(evidence, client=client)
+
+    assert note == client.text
+    prompt = client.calls[0][1][0]["content"]
+    assert "PRIVATE RAW QUERY" not in prompt
+    unsafe_client = NoteClient("Akineton %17.1 önerilir. Klinik karar hekim tarafından verilmelidir.")
+    fallback = generate_explanatory_note(evidence, client=unsafe_client)
+    assert fallback != unsafe_client.text
+    assert "hekim" in fallback
+    _, source = generate_explanatory_note(evidence, client=unsafe_client, return_source=True)
+    assert source == "sabit"

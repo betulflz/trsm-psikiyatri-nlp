@@ -1,5 +1,5 @@
 from trsm.drug_matching import build_surface_form_index
-from trsm.symptom_extraction import is_probable_symptom, split_into_phrases
+from trsm.symptom_extraction import classify_record_phrase, is_probable_symptom, split_into_phrases
 
 FAKE_DRUG_INDEX = build_surface_form_index({"Akineton": ["Akineton"]})
 
@@ -34,7 +34,8 @@ def test_is_probable_symptom_rejects_phone_numbers():
 
 
 def test_is_probable_symptom_accepts_genuine_clinical_phrase():
-    assert is_probable_symptom("Aktif ruhsal yakınması yok") is True
+    assert is_probable_symptom("Aktif ruhsal yakınması yok") is False
+    assert classify_record_phrase("Aktif ruhsal yakınması yok") == "olumsuz_bulgu"
     assert is_probable_symptom("uykusuzluk ve huzursuzluk var") is True
 
 
@@ -42,5 +43,11 @@ def test_is_probable_symptom_rejects_known_drug_dose_line():
     assert is_probable_symptom("Akineton 2mg 2x1", FAKE_DRUG_INDEX) is False
 
 
-def test_is_probable_symptom_keeps_dose_mention_without_known_drug():
-    assert is_probable_symptom("Dozu 2x1'e çıkarıldı", FAKE_DRUG_INDEX) is True
+def test_is_probable_symptom_rejects_treatment_and_administrative_records():
+    assert is_probable_symptom("Dozu 2x1'e çıkarıldı", FAKE_DRUG_INDEX) is False
+    assert classify_record_phrase("Hasta ile bireysel görüşme yapıldı") == "belirti_disi_kayit"
+    assert classify_record_phrase("İlaçlarını düzenli kullanıyor") == "belirti_disi_kayit"
+
+
+def test_sleep_duration_without_a_complaint_is_a_status_not_an_active_symptom():
+    assert classify_record_phrase("Uyku: 7-8 saat") == "olumsuz_bulgu"

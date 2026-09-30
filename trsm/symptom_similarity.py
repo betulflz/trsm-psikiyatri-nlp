@@ -1,17 +1,33 @@
 import numpy as np
 
 from .symptom_clustering import embed_phrases
+from .drug_matching import build_surface_form_index_from_db
+from .symptom_extraction import classify_record_phrase
 
 
-def build_symptom_index(conn, index_path, model=None):
+def build_symptom_index(conn, index_path, model=None, surface_form_index=None):
+    """Build a retrieval index from active symptom expressions only.
+
+    ``semptom_kaydi`` is retained as a raw, traceable extraction table.  The
+    index is stricter: non-symptom documentation and explicit "no current
+    symptom" statements are excluded from similarity search.
+    """
     cur = conn.cursor()
     cur.execute("SELECT ziyaret_id, ifade_ham FROM semptom_kaydi")
     rows = cur.fetchall()
 
-    ziyaret_ids = [row[0] for row in rows]
-    phrases = [row[1] for row in rows]
+    surface_form_index = surface_form_index or build_surface_form_index_from_db(conn)
+    accepted = [
+        row for row in rows
+        if classify_record_phrase(row[1], surface_form_index) == "semptom"
+    ]
+    ziyaret_ids = [row[0] for row in accepted]
+    phrases = [row[1] for row in accepted]
 
-    embeddings = np.asarray(embed_phrases(phrases, model=model))
+    if phrases:
+        embeddings = np.asarray(embed_phrases(phrases, model=model))
+    else:
+        embeddings = np.empty((0, 0))
 
     np.savez(
         index_path,
@@ -19,6 +35,11 @@ def build_symptom_index(conn, index_path, model=None):
         ziyaret_ids=np.array(ziyaret_ids),
         phrases=np.array(phrases, dtype=object),
     )
+    return {
+        "toplam_ham_kayit": len(rows),
+        "indekse_alinan_aktif_semptom": len(phrases),
+        "haric_tutulan_kayit": len(rows) - len(phrases),
+    }
 
 
 def load_symptom_index(index_path):

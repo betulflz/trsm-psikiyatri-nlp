@@ -1,9 +1,9 @@
 # TRSM İlaç Öneri Asistanı
 
-Geçmiş hasta ziyaretlerindeki semptom benzerliğine dayanarak istatistiksel ilaç
-özeti üreten, tamamen yerel çalışan bir Streamlit uygulaması. Hiçbir hasta
-verisi bu makineden dışarı gönderilmez; özet metni yerel bir Ollama LLM'i ile
-üretilir.
+Geçmiş hasta ziyaretlerindeki semptom benzerliği ile seçilen yaş ve cinsiyet
+profilini birlikte kullanan, istatistiksel ilaç-kayıt özeti üreten tamamen yerel
+bir Streamlit uygulaması. Hiçbir hasta verisi bu makineden dışarı gönderilmez;
+özet metni yerel bir Ollama LLM'i ile üretilir.
 
 ## Kurulum
 
@@ -47,3 +47,16 @@ Not: Bu makinede `streamlit` konsol komutu (shim) bozuk olabilir; bu yüzden
 
 Uygulama, `trsm.db` veya `data/symptom_index.npz` bulunamazsa hangi komutu
 çalıştırmanız gerektiğini belirten bir hata mesajı gösterip duracaktır.
+
+## Profil bazlı sorgu
+
+Kullanıcı yaşını, cinsiyetini ve semptomunu girer. Sistem semantik olarak
+benzer geçmiş semptomları bulur; ardından yalnızca aynı cinsiyette ve geçmiş
+ziyaret tarihinde aynı yaş grubunda (15-17, 18-29, 30-44, 45-59, 60+) olan
+doğrulanmış kayıtları toplulaştırır. Ekrana hasta adı veya geçmişte yazılmış
+ham semptom cümlesi verilmez.
+
+Sonuç tedavi önerisi değildir: yalnızca bu demografik profil ve semptomla
+uyumlu geçmiş kayıtlardaki ilaç örüntüsünü, kişi/ziyaret sayısı ile birlikte
+gösterir. Örneklem 20 ziyaretten veya 5 kişiden küçükse sonuç açıkça uyarılı
+olarak gösterilir.

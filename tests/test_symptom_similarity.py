@@ -47,6 +47,22 @@ def test_build_and_load_symptom_index_round_trips(tmp_path):
     assert phrases == ["Aaaaa bir durum", "Bbbbb iki durum"]
 
 
+def test_symptom_index_excludes_administrative_and_negative_status_records(tmp_path):
+    conn = get_connection(":memory:")
+    create_schema(conn)
+    kept = _insert_semptom(conn, "kept.pdf", "uykusuzluk var")
+    _insert_semptom(conn, "admin.pdf", "Hasta ile bireysel görüşme yapıldı")
+    _insert_semptom(conn, "status.pdf", "Aktif ruhsal yakınması yok")
+
+    index_path = tmp_path / "filtered-index.npz"
+    result = build_symptom_index(conn, str(index_path), model=FakeModel())
+    _, ziyaret_ids, phrases = load_symptom_index(str(index_path))
+
+    assert ziyaret_ids == [kept]
+    assert phrases == ["uykusuzluk var"]
+    assert result["haric_tutulan_kayit"] == 2
+
+
 def test_find_similar_phrases_returns_closest_above_threshold():
     embeddings = np.array([[1.0, 0.0], [0.0, 1.0], [0.9, 0.1]])
     ziyaret_ids = [10, 20, 30]

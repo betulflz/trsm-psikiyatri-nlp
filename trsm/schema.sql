@@ -1,6 +1,10 @@
 CREATE TABLE IF NOT EXISTS hasta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    dosya_adi TEXT NOT NULL UNIQUE
+    dosya_adi TEXT NOT NULL UNIQUE,
+    cinsiyet TEXT,
+    dogum_tarihi TEXT,
+    cinsiyet_kaynagi TEXT,
+    dogum_tarihi_kaynagi TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ziyaret (
@@ -8,8 +12,16 @@ CREATE TABLE IF NOT EXISTS ziyaret (
     hasta_id INTEGER NOT NULL REFERENCES hasta(id),
     tarih TEXT,
     sayfa_no INTEGER,
+    kaynak_dosya_adi TEXT,
     ham_mudahale_metni TEXT,
     ham_sonuc_metni TEXT
+);
+
+CREATE TABLE IF NOT EXISTS hasta_dosya (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hasta_id INTEGER NOT NULL REFERENCES hasta(id),
+    dosya_adi TEXT NOT NULL UNIQUE,
+    kaynak_klasor TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS ilac_sozluk (

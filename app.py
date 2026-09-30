@@ -4,24 +4,29 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 
 from trsm.db import get_connection
-from trsm.recommendation import compute_drug_statistics, generate_summary
-from trsm.symptom_similarity import find_similar_phrases, load_symptom_index
+from trsm.recommendation import (
+    TIBBI_UYARI,
+    build_evidence_summary,
+    generate_explanatory_note,
+)
+from trsm.symptom_similarity import load_symptom_index
+from trsm.transparent_symptom_query import (
+    analyze_transparent_symptom_query,
+    build_category_seed_embeddings,
+)
 
 DB_PATH = "trsm.db"
 INDEX_PATH = "data/symptom_index.npz"
 MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-TIBBI_UYARI = (
-    "Bu bir istatistiksel özet olup tıbbi tavsiye değildir, "
-    "tedavi kararı hekim tarafından verilmelidir."
-)
 
 
 @st.cache_resource
 def load_resources():
     model = SentenceTransformer(MODEL_NAME)
     embeddings, ziyaret_ids, phrases = load_symptom_index(INDEX_PATH)
+    seed_embeddings = build_category_seed_embeddings(model)
     conn = get_connection(DB_PATH, check_same_thread=False)
-    return model, embeddings, ziyaret_ids, phrases, conn
+    return model, embeddings, ziyaret_ids, phrases, seed_embeddings, conn
 
 
 st.title("TRSM İlaç Öneri Asistanı")
@@ -41,32 +46,48 @@ if not Path(INDEX_PATH).exists():
     )
     st.stop()
 
-model, embeddings, ziyaret_ids, phrases, conn = load_resources()
+model, embeddings, ziyaret_ids, phrases, seed_embeddings, conn = load_resources()
 
-query = st.text_input("Semptomunuzu yazın (örn. 'halsizim')")
+col_age, col_gender = st.columns(2)
+with col_age:
+    age = st.number_input("Yaş", min_value=15, max_value=120, value=25, step=1)
+with col_gender:
+    gender = st.selectbox("Cinsiyet", options=["Kadın", "Erkek"], index=None, placeholder="Seçiniz")
+query = st.text_area(
+    "Yakınmaları ayrıntılı yazın",
+    placeholder="Örn. hasta bunalmış, geceleri uyuyamıyor, gelecek kaygıları yaşıyor...",
+    max_chars=2000,
+)
 
-if query:
-    query_embedding = model.encode([query])[0]
-    similar = find_similar_phrases(query_embedding, embeddings, ziyaret_ids, phrases)
-    similar_ziyaret_ids = list({s["ziyaret_id"] for s in similar})
+if query and gender:
+    result = analyze_transparent_symptom_query(
+        conn, query, age, gender, model, embeddings, ziyaret_ids, phrases,
+        seed_embeddings=seed_embeddings,
+    )
+    evidence = build_evidence_summary(result)
 
-    stats = compute_drug_statistics(conn, similar_ziyaret_ids)
+    st.subheader("Kanıt özeti")
+    st.success(evidence["metin"])
+    st.warning(evidence["uyari"])
+    st.subheader("Metnin şeffaf çözümlemesi")
+    st.table([
+        {
+            "ifade": row["ifade"],
+            "temalar": ", ".join(item["kategori"] for item in row["kategoriler"]) or "Belirsiz",
+        }
+        for row in result["analiz_edilen_ifadeler"]
+    ])
+    st.subheader("Tema bazlı kanıtlar")
+    for theme in result["kategoriler"]:
+        st.markdown(f"#### {theme['kategori']}")
+        st.caption(f"{theme['uyumlu_hasta_sayisi']} kişi / {theme['uyumlu_ziyaret_sayisi']} ziyaret")
+        st.table(theme["ilaclar"])
 
-    st.subheader("İlaç İstatistiği")
-    if stats:
-        st.table(stats)
-        st.caption(f"Benzer {len(similar_ziyaret_ids)} ziyaret kaydına dayanıyor.")
-    else:
-        st.info("Bu semptoma yeterince benzer geçmiş veri bulunamadı.")
+    if st.button("Qwen ile açıklayıcı not üret"):
+        try:
+            st.info(generate_explanatory_note(evidence))
+        except Exception:
+            st.info("Açıklayıcı not üretilemedi; kanıt özeti yukarıda görüntüleniyor.")
 
-    st.subheader("Özet")
-    try:
-        summary = generate_summary(query, stats)
-        st.write(summary)
-    except Exception:
-        st.write(
-            "Özet oluşturulamadı (yerel LLM'e ulaşılamadı). "
-            "İstatistik tablosu yukarıda görüntüleniyor."
-        )
-
-    st.warning(TIBBI_UYARI)
+elif query:
+    st.info("İstatistiksel özeti görmek için cinsiyet seçin.")

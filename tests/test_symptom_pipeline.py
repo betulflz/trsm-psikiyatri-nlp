@@ -59,23 +59,23 @@ class CountingFakeModel:
 def test_run_symptom_extraction_deduplicates_identical_phrases_before_clustering():
     conn = get_connection(":memory:")
     create_schema(conn)
-    # "Uyku iyi" repeats across both visits; "Devam ediyor" is a second unique
+    # "Uykusuzluk sürüyor" repeats across both visits; "Devam ediyor" is a second unique
     # phrase so there are >= min_cluster_size unique points for HDBSCAN.
-    _insert_ziyaret(conn, "a.pdf", "Uyku iyi, Devam ediyor.")
-    _insert_ziyaret(conn, "b.pdf", "Uyku iyi.")
+    _insert_ziyaret(conn, "a.pdf", "Uykusuzluk sürüyor, Devam ediyor.")
+    _insert_ziyaret(conn, "b.pdf", "Uykusuzluk sürüyor.")
 
     model = CountingFakeModel()
     run_symptom_extraction(conn, min_cluster_size=2, model=model)
 
     assert len(model.encoded_phrases) == 2
-    assert sorted(model.encoded_phrases) == ["Devam ediyor", "Uyku iyi"]
+    assert sorted(model.encoded_phrases) == ["Devam ediyor", "Uykusuzluk sürüyor"]
 
     cur = conn.cursor()
     cur.execute("SELECT ifade_ham, kategori FROM semptom_kaydi")
     rows = cur.fetchall()
 
     assert len(rows) == 3
-    uyku_kategoriler = {kategori for ifade, kategori in rows if ifade == "Uyku iyi"}
+    uyku_kategoriler = {kategori for ifade, kategori in rows if ifade == "Uykusuzluk sürüyor"}
     assert len(uyku_kategoriler) == 1
 
 

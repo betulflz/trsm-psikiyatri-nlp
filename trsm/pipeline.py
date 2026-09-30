@@ -3,6 +3,7 @@ from pathlib import Path
 from .cleaning import fill_missing_dates
 from .data_loading import load_raw_excel
 from .db import create_schema, get_connection
+from .demographic_extraction import run_demographic_extraction
 from .drug_dictionary import load_drug_dictionary, load_drug_dictionary_into_db
 from .drug_matching import build_surface_form_index
 from .medication_pipeline import run_medication_extraction
@@ -37,6 +38,7 @@ def run_pipeline(
     try:
         create_schema(conn)
         load_visits(conn, df)
+        run_demographic_extraction(conn)
 
         drug_dictionary = load_drug_dictionary(drug_dictionary_path)
         load_drug_dictionary_into_db(conn, drug_dictionary)

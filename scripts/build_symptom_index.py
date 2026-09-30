@@ -18,11 +18,15 @@ def main():
 
     conn = get_connection(args.db_path)
     try:
-        build_symptom_index(conn, args.index_path)
+        result = build_symptom_index(conn, args.index_path)
     finally:
         conn.close()
 
-    print(f"Semptom indeksi oluşturuldu: {args.index_path}")
+    print(
+        f"Semptom indeksi oluşturuldu: {args.index_path} "
+        f"({result['indekse_alinan_aktif_semptom']} aktif ifade, "
+        f"{result['haric_tutulan_kayit']} belirti dışı/olumsuz kayıt hariç tutuldu)"
+    )
 
 
 if __name__ == "__main__":
