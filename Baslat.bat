@@ -9,6 +9,7 @@ chcp 65001 >nul
 setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
 set "TRSM_DATA_DIR=%CD%\data"
+set "PYTHONFAULTHANDLER=1"
 if "%TRSM_PORT%"=="" set "TRSM_PORT=8765"
 
 echo.
@@ -79,7 +80,7 @@ echo Uygulama aciliyor; tarayici birazdan kendiliginden acilacak.
 echo Tarayici birkac dakika icinde acilmazsa tarayiciya su adresi yazin:
 echo http://127.0.0.1:%TRSM_PORT%
 echo Bu pencereyi kapatmayin; kapatirsaniz uygulama da kapanir.
-uv run --no-sync python demo_server.py
+uv run --no-sync python -X faulthandler demo_server.py
 set "APP_EXIT=%ERRORLEVEL%"
 if not "%APP_EXIT%"=="0" (
   echo.
@@ -90,5 +91,7 @@ if not "%APP_EXIT%"=="0" (
 
 :finish
 echo.
-echo Pencere acik kalacaktir. Hata varsa yukaridaki metnin ekran goruntusunu alin.
+echo Uygulama durdu. Hata varsa yukaridaki metnin ekran goruntusunu alin.
+echo Kapatmak icin bir tusa basin.
+pause >nul
 exit /b
