@@ -1,6 +1,12 @@
 @echo off
+if /I "%~1"=="__TRSM_ANA_CALISTIR" goto :main
+cmd.exe /d /k call "%~f0" __TRSM_ANA_CALISTIR
+exit /b
+
+:main
+shift /1
 chcp 65001 >nul
-setlocal EnableExtensions
+setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
 set "TRSM_DATA_DIR=%CD%\data"
 if "%TRSM_PORT%"=="" set "TRSM_PORT=8765"
@@ -9,14 +15,7 @@ echo.
 echo TRSM Demo baslatiliyor...
 echo.
 
-for /f "usebackq tokens=1-4 delims=|" %%A in (`powershell -NoProfile -Command "$os=Get-CimInstance Win32_OperatingSystem; $ram=[math]::Round($os.TotalVisibleMemorySize/1MB,1); Write-Output ($os.Caption+'|'+$os.Version+'|'+[Environment]::Is64BitOperatingSystem+'|'+$ram)"`) do (
-  set "OS_NAME=%%A"
-  set "OS_VERSION=%%B"
-  set "IS_64=%%C"
-  set "RAM_GB=%%D"
-)
-echo Windows: %OS_NAME% ^(%OS_VERSION%^) 
-echo Sistem: %IS_64%-bit, RAM: %RAM_GB% GB
+powershell -NoProfile -Command "$os=Get-CimInstance Win32_OperatingSystem; $ram=[math]::Round($os.TotalVisibleMemorySize/1MB,1); Write-Output ('Windows: '+$os.Caption+' ('+$os.Version+')'); Write-Output ('Sistem: '+[Environment]::Is64BitOperatingSystem+'-bit, RAM: '+$ram+' GB')"
 
 powershell -NoProfile -Command "$os=Get-CimInstance Win32_OperatingSystem; if (-not [Environment]::Is64BitOperatingSystem -or [version]$os.Version -lt [version]'10.0') { exit 1 }"
 if errorlevel 1 (
@@ -26,7 +25,8 @@ if errorlevel 1 (
 )
 
 set "PATH_RISK=0"
-for /f %%A in ('powershell -NoProfile -Command "$p=(Get-Location).Path; if ($p.IndexOf('OneDrive',[System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or $p.Length -gt 60) { '1' } else { '0' }"') do set "PATH_RISK=%%A"
+powershell -NoProfile -Command "$p=(Get-Location).Path; if ($p -match 'OneDrive' -or $p.Length -gt 60) { exit 1 } else { exit 0 }"
+if errorlevel 1 set "PATH_RISK=1"
 if "%PATH_RISK%"=="1" (
   echo.
   echo Uyari: Uygulama OneDrive'a bagli ya da cok uzun bir klasor yolunda duruyor.
@@ -90,5 +90,5 @@ if not "%APP_EXIT%"=="0" (
 
 :finish
 echo.
-echo Kapatmak icin bir tusa basin.
-pause >nul
+echo Pencere acik kalacaktir. Hata varsa yukaridaki metnin ekran goruntusunu alin.
+exit /b
