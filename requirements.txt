@@ -1,0 +1,10 @@
+# Eski pip kullanımı için çalışma zamanı bağımlılıkları.
+# Dağıtım ve geliştirme için tercih edilen kaynak pyproject.toml + uv.lock'tur.
+Flask>=3.0
+numpy>=1.26
+ollama>=0.3
+pandas>=2.0
+rapidfuzz>=3.5
+scikit-learn>=1.3
+sentence-transformers>=2.2
+torch==2.6.0

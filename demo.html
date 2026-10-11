@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRSM Analiz Paneli — Canlı Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #eef0e9; --surface: #f8f8f2; --surface-2: #ffffff;
+    --ink: #1e2a22; --ink-soft: #52594c; --ink-faint: #8b9080;
+    --line: #cec9ae; --accent: #a13d2e; --good: #1baf7a; --warn: #eda100;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #4a3aa7;
+    --seq-500:#256abf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #171a15; --surface: #1f231b; --surface-2: #262b20;
+      --ink: #edeee3; --ink-soft: #b7bdac; --ink-faint: #767c6c;
+      --line: #3a3f31; --accent: #e0715c; --good: #199e70; --warn: #c98500;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #9085e9;
+      --seq-500:#256abf;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #171a15; --surface: #1f231b; --surface-2: #262b20;
+    --ink: #edeee3; --ink-soft: #b7bdac; --ink-faint: #767c6c;
+    --line: #3a3f31; --accent: #e0715c; --good: #199e70; --warn: #c98500;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #9085e9;
+    --seq-500:#256abf;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55;
+  }
+  a { color: inherit; }
+  h1, h2, h3 { font-family: "Fraunces", ui-serif, Georgia, serif; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+
+  .masthead { max-width: 1040px; margin: 0 auto; padding: 44px 28px 32px; display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .masthead .kicker { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .masthead .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in oklab, var(--good) 20%, transparent); }
+  .masthead h1 { font-size: clamp(26px, 3.6vw, 36px); }
+  .masthead p { color: var(--ink-soft); margin-top: 8px; max-width: 60ch; }
+  #server-status { font-family: "IBM Plex Mono", monospace; font-size: 11px; padding: 6px 10px; border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap; }
+  #server-status.err { color: var(--accent); border-color: var(--accent); }
+
+  nav.tabs { position: sticky; top: 0; z-index: 10; background: color-mix(in oklab, var(--paper) 88%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  nav.tabs .row { max-width: 1040px; margin: 0 auto; padding: 0 28px; display: flex; gap: 4px; overflow-x: auto; }
+  nav.tabs button { appearance: none; border: none; background: none; cursor: pointer; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-faint); padding: 14px 14px 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  nav.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+  main { max-width: 1040px; margin: 0 auto; padding: 36px 28px 100px; }
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+  .section-head { margin-bottom: 22px; }
+  .section-head h2 { font-size: 22px; }
+  .section-head p { color: var(--ink-soft); margin-top: 8px; max-width: 62ch; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .stat-tile { background: var(--surface); padding: 18px 18px 16px; }
+  .stat-tile .v { font-family: "Fraunces", serif; font-size: 26px; font-weight: 600; }
+  .stat-tile .l { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); padding: 22px; margin-top: 18px; }
+
+  svg.trend { width: 100%; height: 300px; overflow: visible; }
+  .chart-wrap { position: relative; }
+  .trend-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; }
+  .trend-legend button { appearance: none; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 5px 10px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-soft); }
+  .trend-legend button .sw { width: 10px; height: 10px; border-radius: 2px; }
+  .trend-legend button[aria-pressed="false"] { opacity: 0.35; }
+  .tooltip { position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; padding: 8px 10px; border-radius: 3px; transform: translate(-50%, -115%); white-space: nowrap; opacity: 0; transition: opacity .1s; }
+  .tooltip.show { opacity: 1; }
+  .person-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px 24px; flex-wrap: wrap; }
+  .person-head h3 { font-size: 18px; }
+  .person-head .person-meta { color: var(--ink-soft); font-size: 13px; margin: 4px 0 0; }
+  .person-head select { min-height: 40px; max-width: 100%; padding: 6px 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 13px "IBM Plex Mono", monospace; }
+  .person-head select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #transition-patient { min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 13px "IBM Plex Mono", monospace; }
+  #person-trend { margin-top: 22px; }
+  #person-trend-tip { white-space: normal; width: max-content; line-height: 1.4; }
+  .change-log { list-style: none; margin: 8px 0 0; padding: 0; columns: 2 300px; column-gap: 32px; }
+  .change-log li { break-inside: avoid; display: grid; grid-template-columns: 88px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid color-mix(in oklab, var(--line) 60%, transparent); color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+  .change-log time { font: 12px "IBM Plex Mono", monospace; color: var(--ink-faint); padding-top: 1px; }
+  .change-log .chg-add { color: var(--ink); font-weight: 600; }
+  .person-table { margin-top: 14px; font-size: 12.5px; }
+  .person-table summary { cursor: pointer; color: var(--ink-soft); }
+  .person-table .tbl-scroll { overflow-x: auto; }
+  .person-table table { border-collapse: collapse; margin-top: 8px; font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .person-table th, .person-table td { padding: 4px 12px 4px 0; text-align: right; border-bottom: 1px solid var(--line); }
+  .person-table th:first-child, .person-table td:first-child { text-align: left; }
+
+  .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .cat-chip { appearance: none; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; padding: 9px 13px; font-size: 13px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  .cat-chip .n { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-faint); }
+  .cat-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface-2); }
+  .cat-chip[aria-pressed="true"] .n { color: color-mix(in oklab, var(--surface-2) 75%, transparent); }
+
+  .bar-row { display: grid; grid-template-columns: 116px 1fr 108px; align-items: center; gap: 14px; padding: 7px 0; }
+  .bar-track { position: relative; height: 20px; background: var(--paper); border: 1px solid var(--line); }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--seq-500); transition: width .3s; }
+  .bar-fill.baseline { background: var(--ink-faint); opacity: .55; }
+  .bar-num { font-family: "IBM Plex Mono", monospace; font-size: 12px; text-align: right; color: var(--ink-soft); }
+  .bar-num strong { color: var(--ink); }
+  .lift-up { color: var(--good); }
+  .lift-dn { color: var(--ink-faint); }
+  .legend-mini { display: flex; gap: 18px; font-size: 12px; color: var(--ink-soft); margin-top: 14px; }
+  .legend-mini span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-mini i { width: 12px; height: 10px; display: inline-block; }
+
+  .query-form { display: flex; gap: 10px; flex-wrap: wrap; }
+  .query-form select, .query-form input[type="number"] {
+    min-height: 47px; padding: 10px 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit;
+  }
+  .query-form input[type="text"] {
+    flex: 1 1 320px; font-family: "Fraunces", serif; font-size: 16px;
+    padding: 12px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  }
+  .query-form textarea {
+    flex: 1 1 100%; min-height: 150px; resize: vertical; font: 16px/1.5 "Work Sans", sans-serif;
+    padding: 13px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  }
+  .query-form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .query-form .field-note { flex: 1 1 100%; margin: -4px 0 0; color: var(--ink-faint); font-size: 12px; }
+  .analysis-clause { padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .analysis-clause:last-child { border-bottom: none; }
+  .analysis-clause .user-phrase { font-size: 13px; color: var(--ink-soft); }
+  .theme-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .theme-tag { border: 1px solid var(--line); background: var(--surface-2); padding: 3px 7px; font: 11px "IBM Plex Mono", monospace; color: var(--ink-soft); }
+  .theme-tag.uncertain { border-style: dashed; color: var(--accent); }
+  .quality-note { margin: 7px 0 0; font-size: 12px; color: var(--ink-soft); }
+  .quality-note.warn { color: var(--accent); }
+  .transition-summary { display:grid; grid-template-columns:minmax(170px,1.1fr) 100px 1fr 1fr; gap:12px; align-items:start; padding:13px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .transition-summary:last-of-type { border-bottom:none; }
+  .transition-summary .muted { color:var(--ink-soft); font-size:12px; line-height:1.45; }
+  .transition-detail { border:1px solid var(--line); margin-top:10px; background:var(--surface-2); }
+  .transition-detail summary { cursor:pointer; padding:12px 13px; font-weight:600; }
+  .transition-detail[open] summary { border-bottom:1px solid var(--line); }
+  .transition-flow { display:grid; grid-template-columns:1fr 32px 1fr 32px 1fr; gap:8px; align-items:stretch; padding:13px; }
+  .flow-step { background:var(--paper); padding:11px; min-height:92px; }
+  .flow-step .flow-label { font:10.5px "IBM Plex Mono", monospace; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; }
+  .flow-step .flow-title { margin:5px 0 8px; font-weight:600; font-size:13px; }
+  .flow-arrow { align-self:center; text-align:center; color:var(--accent); font-size:20px; }
+  .theme-pill { display:inline-block; margin:2px 3px 2px 0; padding:3px 6px; border:1px solid var(--line); color:var(--ink-soft); font-size:11px; }
+  .theme-pill.missing { border-color:color-mix(in oklab, var(--accent) 40%, var(--line)); color:var(--accent); }
+  .theme-pill.new { border-color:color-mix(in oklab, var(--good) 45%, var(--line)); color:var(--good); }
+  .transition-deltas { display:flex; gap:18px; flex-wrap:wrap; padding:0 13px 13px; color:var(--ink-soft); font-size:12px; }
+  .transition-deltas strong { color:var(--ink); font-weight:600; }
+  @media (max-width:760px) { .transition-summary { grid-template-columns:1fr; gap:5px; } .transition-flow { grid-template-columns:1fr; } .flow-arrow { transform:rotate(90deg); min-height:20px; } }
+  .semantic-note { margin: 12px 0 0; padding: 9px 11px; border-left: 3px solid var(--teal); background: var(--surface-2); font-size: 13px; }
+  .safety-note { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: #fff3ee; color: var(--ink); font-weight: 600; }
+  .theme-card { border-top: 1px solid var(--line); padding: 16px 0; }
+  .theme-card:first-child { border-top: none; padding-top: 0; }
+  .theme-card h3 { font-size: 18px; }
+  .query-form input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn { appearance: none; border: 1px solid var(--accent); background: var(--accent); color: var(--surface-2); cursor: pointer; padding: 12px 18px; font-family: "Work Sans", sans-serif; font-weight: 600; font-size: 13.5px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .examples button { appearance: none; border: 1px dashed var(--line); background: none; color: var(--ink-faint); font-size: 12px; padding: 5px 9px; cursor: pointer; }
+  .examples button:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .two-col { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-top: 18px; }
+  @media (max-width: 760px) { .two-col { grid-template-columns: 1fr; } }
+
+  .summary-box { margin-top: 14px; padding: 14px; background: var(--paper); border-left: 3px solid var(--accent); font-size: 13.5px; color: var(--ink-soft); display: none; }
+  .summary-box.show { display: block; }
+  .evidence-box { margin-top: 14px; padding: 14px; background: var(--paper); border-left: 3px solid var(--good); font-size: 13.5px; color: var(--ink-soft); }
+  .evidence-box .warning { display: block; margin-top: 9px; color: var(--accent); font-size: 12px; }
+
+  .spinner { width: 14px; height: 14px; border: 2px solid color-mix(in oklab, var(--surface-2) 40%, transparent); border-top-color: var(--surface-2); border-radius: 50%; display: inline-block; animation: spin .7s linear infinite; margin-right: 6px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.4s; } }
+
+  .empty-note { color: var(--ink-faint); font-size: 13px; padding: 8px 0; }
+  .foot { max-width: 1040px; margin: 0 auto; padding: 0 28px 60px; color: var(--ink-faint); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div>
+    <div class="kicker"><span class="dot"></span><span class="eyebrow">Toplum Ruh Sağlığı Merkezi &middot; canlı demo</span></div>
+    <h1>TRSM Analiz Paneli</h1>
+  </div>
+  <div id="server-status" class="mono">bağlanıyor&hellip;</div>
+</div>
+
+<nav class="tabs">
+  <div class="row" role="tablist" aria-label="Bölümler">
+    <button role="tab" aria-selected="true" data-panel="genel">01 · Veri Seti</button>
+    <button role="tab" aria-selected="false" data-panel="trend">02 · Kullanım Trendi</button>
+    <button role="tab" aria-selected="false" data-panel="iliski">03 · Semptom&ndash;İlaç İlişkisi</button>
+    <button role="tab" aria-selected="false" data-panel="sorgu">04 · Canlı Sorgu</button>
+  </div>
+</nav>
+
+<main>
+  <section class="panel active" id="genel">
+    <div class="section-head">
+      <span class="eyebrow">01 &middot; Veri Seti</span>
+      <h2>trsm.db'den canlı çekilen sayılar</h2>
+    </div>
+    <div class="stat-grid" id="stat-grid"><div class="empty-note">Yükleniyor&hellip;</div></div>
+  </section>
+
+  <section class="panel" id="trend">
+    <div class="section-head">
+      <span class="eyebrow">02 &middot; Kullanım Trendi</span>
+      <h2>Yıllara göre en sık kullanılan 6 ilaç</h2>
+      <p>2021&ndash;2025 arası, güven eşiği &ge;90. <span class="mono">/api/trend</span> her seferinde veritabanını tazeden tarar.</p>
+    </div>
+    <div class="card">
+      <div class="chart-wrap">
+        <svg class="trend" id="trend-svg" viewBox="0 0 900 300" preserveAspectRatio="none" role="img" aria-label="Yıllara göre ilaç kullanım trendi"></svg>
+        <div class="tooltip" id="trend-tip"></div>
+      </div>
+      <div class="trend-legend" id="trend-legend"></div>
+    </div>
+    <div class="card">
+      <div class="person-head">
+        <div>
+          <span class="eyebrow">Kişi bazlı &middot; 2021&ndash;2025</span>
+          <h3 id="person-trend-title">Bir kişi seçin</h3>
+          <p class="person-meta" id="person-trend-meta">Seçilen kişinin en sık kayıtlı ilaçlarının yıllara göre değişimini, genel grafikle aynı biçimde gösterir.</p>
+        </div>
+        <select id="trend-patient" aria-label="Kişi kodu"><option value="">Kişi kodu yükleniyor&hellip;</option></select>
+      </div>
+      <div id="person-trend" hidden>
+        <div class="chart-wrap">
+          <svg class="trend" id="person-trend-svg" viewBox="0 0 900 300" preserveAspectRatio="none" role="img" aria-label="Seçilen kişinin yıllara göre ilaç kayıtları"></svg>
+          <div class="tooltip" id="person-trend-tip"></div>
+        </div>
+        <div class="trend-legend" id="person-trend-legend"></div>
+        <details class="person-table"><summary id="person-change-summary">Değişim günlüğü</summary><ol class="change-log" id="person-change-log"></ol></details>
+        <details class="person-table"><summary>Tablo görünümü (tüm ilaçlar, yıllara göre kayıt günü)</summary><div class="tbl-scroll" id="person-trend-table"></div></details>
+        <p class="quality-note" id="person-trend-note"></p>
+      </div>
+      <div class="empty-note" id="person-trend-status"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <span class="eyebrow">İlaç düzeni değişimi · toplulaştırılmış gözlemsel özet</span>
+      <div id="transition-stats" class="empty-note">Geçiş istatistikleri yükleniyor&hellip;</div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <span class="eyebrow">Kişi bazlı önce / sonra kayıt karşılaştırması</span>
+      <p style="color:var(--ink-soft);font-size:13px">Kimliği gösterilmeyen bir kişi kodu seçin. Çıktı, önceki ilaç düzeni ile sonraki takip notlarında kaydedilen geniş semptom temalarını karşılaştırır; ilaç etkisini kanıtlamaz.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="transition-patient" aria-label="Kişi kodu (karşılaştırma)"><option value="">Kişi kodu yükleniyor&hellip;</option></select>
+        <button type="button" class="btn ghost" id="transition-patient-btn">Karşılaştırmayı göster</button>
+      </div>
+      <div id="transition-patient-detail" class="empty-note"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="iliski">
+    <div class="section-head">
+      <span class="eyebrow">03 &middot; Semptom&ndash;İlaç İlişkisi</span>
+      <h2>Bir kategori seç, ilişkili ilaçları gör</h2>
+      <p>Koyu çubuk = kategori içi yüzde, açık çubuk = tüm veri setindeki genel yüzde. İlk açılışta embedding taraması sunucu tarafında bir kez yapılıp önbelleğe alınır (birkaç saniye sürebilir).</p>
+    </div>
+    <div class="cat-chips" id="cat-chips"><div class="empty-note">Kategoriler hesaplanıyor&hellip;</div></div>
+    <div class="card">
+      <div id="cat-detail"></div>
+      <div class="legend-mini">
+        <span><i style="background:var(--seq-500)"></i> Kategori içi yüzde</span>
+        <span><i style="background:var(--ink-faint);opacity:.55"></i> Genel yüzde</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="sorgu">
+    <div class="section-head">
+      <span class="eyebrow">04 &middot; Canlı Sorgu</span>
+      <h2>Profil ve semptomla geçmiş örüntüleri ara</h2>
+      <p>Yaş, cinsiyet ve semptom birlikte kullanılır. Sistem yalnızca aynı cinsiyet ve aynı yaş grubundaki, benzer semptomlu geçmiş ziyaretlerin toplulaştırılmış ilaç kayıtlarını gösterir.</p>
+    </div>
+    <form class="query-form" id="query-form">
+      <input type="number" id="query-age" min="15" max="120" value="25" aria-label="Yaş">
+      <select id="query-gender" required aria-label="Cinsiyet"><option value="" selected disabled>Cinsiyet seçiniz</option><option value="Kadın">Kadın</option><option value="Erkek">Erkek</option></select>
+      <textarea id="query-input" maxlength="2000" placeholder="Yakınmaları ayrıntılı yazabilirsiniz. Örn. hasta bunalmış, geceleri uyuyamıyor, gelecek kaygıları yaşıyor..." aria-label="Semptom ve yakınmalar"></textarea>
+      <div class="field-note"><span id="query-character-count">0</span>/2000 karakter · Lütfen ad, telefon, T.C. kimlik numarası gibi kimlik bilgisi yazmayın.</div>
+      <button type="submit" class="btn" id="query-submit">Ara</button>
+    </form>
+    <div class="examples" id="query-examples">
+      <button type="button" data-q="uykusuzluk ve huzursuzluk">uykusuzluk ve huzursuzluk</button>
+      <button type="button" data-q="öfke nöbeti">öfke nöbeti</button>
+      <button type="button" data-q="iştahsızlık">iştahsızlık</button>
+      <button type="button" data-q="mutsuzum ağlayasım geliyor">mutsuzum ağlayasım geliyor</button>
+    </div>
+
+    <div id="query-result" style="display:none">
+      <div class="two-col">
+        <div class="card">
+          <span class="eyebrow">Metnin şeffaf çözümlemesi</span>
+          <div id="profile-match" style="margin-top:10px;color:var(--ink-soft)"></div>
+        </div>
+        <div class="card">
+          <span class="eyebrow" id="query-drug-label">İlaç dağılımı</span>
+          <div id="query-drugs" style="margin-top:10px"></div>
+          <div class="evidence-box" id="evidence-box"></div>
+          <button type="button" class="btn ghost" id="second-opinion-btn" style="margin-top:14px;width:100%" disabled>Qwen ile ikinci yöntem kontrolü</button>
+          <div class="summary-box" id="second-opinion-box"></div>
+          <button type="button" class="btn ghost" id="ozet-btn" style="margin-top:14px;width:100%" disabled>Qwen ile açıklayıcı not üret</button>
+          <p id="qwen-status" class="quality-note" style="margin:8px 0 0">Qwen durumu kontrol ediliyor&hellip;</p>
+          <div class="summary-box" id="summary-box"></div>
+        </div>
+      </div>
+      <div class="card">
+        <span class="eyebrow">Tema bazlı kanıtlar</span>
+        <div id="theme-results" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div class="empty-note" id="query-empty">Henüz bir sorgu çalıştırılmadı.</div>
+  </section>
+</main>
+
+<p class="foot">TRSM Bitirme Projesi &middot; canlı demo, sunucu <span class="mono">http://localhost:8765</span> üzerinden çalışıyor.</p>
+
+<script>
+(function () {
+  "use strict";
+  const fmtInt = n => n.toLocaleString('tr-TR');
+
+  /* ---------- tab nav ---------- */
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const panels = document.querySelectorAll('section.panel');
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    tabs.forEach(b => b.setAttribute('aria-selected', 'false'));
+    btn.setAttribute('aria-selected', 'true');
+    panels.forEach(p => p.classList.remove('active'));
+    document.getElementById(btn.dataset.panel).classList.add('active');
+  }));
+
+  const statusEl = document.getElementById('server-status');
+
+  async function getJSON(url, opts) {
+    const res = await fetch(url, opts);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || ('HTTP ' + res.status));
+    return data;
+  }
+
+  /* ---------- 01 genel ---------- */
+  getJSON('/api/genel').then(g => {
+    statusEl.textContent = 'sunucu bağlı';
+    const stats = [
+      [fmtInt(g.hasta_sayisi), 'Hasta'],
+      [fmtInt(g.ziyaret_sayisi), 'Ziyaret kaydı'],
+      [fmtInt(g.ilac_kayit_sayisi), 'İlaç kullanım kaydı'],
+      [g.farkli_ilac_sayisi, 'Farklı ilaç'],
+      [g.varyasyon_sayisi, 'Yazım varyasyonu'],
+      [fmtInt(g.semptom_kayit_sayisi), 'Semptom ifadesi'],
+    ];
+    document.getElementById('stat-grid').innerHTML = stats.map(([v, l]) =>
+      `<div class="stat-tile"><div class="v mono">${v}</div><div class="l">${l}</div></div>`
+    ).join('');
+  }).catch(showServerError);
+
+  function showServerError(err) {
+    statusEl.textContent = 'sunucuya bağlanılamadı';
+    statusEl.classList.add('err');
+    console.error(err);
+  }
+
+  /* ---------- 02 trend ---------- */
+  const seriesColors = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6'].map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const PAD = { l: 34, r: 8, t: 14, b: 26 };
+  const W = 900, H = 300;
+  const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+  let trendData = null;
+
+  function xFor(i, n) { return PAD.l + (i / (n - 1)) * plotW; }
+  function yFor(v, maxVal) { return PAD.t + plotH - (v / maxVal) * plotH; }
+
+  // Eşit aralıklı tam sayı eksen: adım 1, 2, 5, 10, 20, 50… olur; üst sınır adımın katıdır.
+  function niceScale(rawMax) {
+    if (rawMax <= 8) return { step: 1, max: Math.ceil(rawMax) };
+    const rough = rawMax / 5;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const step = [1, 2, 5, 10].map(m => m * mag).find(c => c >= rough);
+    return { step, max: Math.ceil(rawMax / step) * step };
+  }
+
+  // Genel ve kişi bazlı grafik aynı çizgi grafik modelini kullanır.
+  function makeLineChart(svg, tip, legendEl, unit) {
+    const hidden = new Set();
+    let state = null;
+
+    function render() {
+      if (!state) return;
+      const { yillar, ilaclar, veri, colors } = state;
+      const value = (drug, yr) => (veri[drug] && veri[drug][yr]) || 0;
+      svg.innerHTML = '';
+      const { step, max: maxVal } = niceScale(Math.max(1, ...ilaclar.map(d => Math.max(...yillar.map(y => value(d, y))))));
+      for (let val = 0; val <= maxVal; val += step) {
+        const y = yFor(val, maxVal);
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('x1', PAD.l); line.setAttribute('x2', W - PAD.r);
+        line.setAttribute('y1', y); line.setAttribute('y2', y);
+        line.setAttribute('stroke', 'var(--line)');
+        svg.appendChild(line);
+        const lbl = document.createElementNS(svgNS, 'text');
+        lbl.setAttribute('x', 0); lbl.setAttribute('y', y + 3);
+        lbl.setAttribute('font-size', '10.5'); lbl.setAttribute('fill', 'var(--ink-faint)');
+        lbl.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        lbl.textContent = val;
+        svg.appendChild(lbl);
+      }
+      yillar.forEach((yr, i) => {
+        const lbl = document.createElementNS(svgNS, 'text');
+        lbl.setAttribute('x', xFor(i, yillar.length)); lbl.setAttribute('y', H - 4);
+        lbl.setAttribute('font-size', '11'); lbl.setAttribute('fill', 'var(--ink-soft)');
+        lbl.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        lbl.setAttribute('text-anchor', 'middle');
+        lbl.textContent = yr;
+        svg.appendChild(lbl);
+      });
+      ilaclar.forEach((drug, di) => {
+        if (hidden.has(drug)) return;
+        const color = colors[di];
+        const pts = yillar.map((yr, i) => [xFor(i, yillar.length), yFor(value(drug, yr), maxVal)]);
+        const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', d); path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', color); path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('stroke-linejoin', 'round'); path.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(path);
+        pts.forEach((p, i) => {
+          const hit = document.createElementNS(svgNS, 'circle');
+          hit.setAttribute('cx', p[0]); hit.setAttribute('cy', p[1]); hit.setAttribute('r', 8);
+          hit.setAttribute('fill', 'transparent'); hit.style.cursor = 'pointer';
+          hit.addEventListener('mouseenter', () => showTip(drug, yillar[i], value(drug, yillar[i]), p));
+          hit.addEventListener('mouseleave', () => tip.classList.remove('show'));
+          svg.appendChild(hit);
+          const vis = document.createElementNS(svgNS, 'circle');
+          vis.setAttribute('cx', p[0]); vis.setAttribute('cy', p[1]); vis.setAttribute('r', 3.5);
+          vis.setAttribute('fill', color); vis.setAttribute('stroke', 'var(--surface)'); vis.setAttribute('stroke-width', '1.5');
+          vis.style.pointerEvents = 'none';
+          svg.appendChild(vis);
+        });
+      });
+    }
+
+    function showTip(drug, year, val, pt) {
+      const wrap = svg.getBoundingClientRect();
+      tip.textContent = year + ' — ' + drug + ': ' + val + ' ' + unit;
+      const half = tip.offsetWidth / 2;
+      tip.style.left = Math.min(Math.max(pt[0] * wrap.width / W, half), wrap.width - half) + 'px';
+      tip.style.top = (pt[1] * wrap.height / H) + 'px';
+      tip.classList.add('show');
+    }
+
+    function setData(data, colors) {
+      const keepHidden = state && state.key === data.key;
+      if (!keepHidden) hidden.clear();
+      state = { ...data, colors };
+      legendEl.innerHTML = data.ilaclar.map((d, i) =>
+        `<button aria-pressed="${!hidden.has(d)}" data-drug="${escapeHTML(d)}"><span class="sw" style="background:${colors[i]}"></span>${escapeHTML(d)}</button>`
+      ).join('');
+      legendEl.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pressed = btn.getAttribute('aria-pressed') === 'true';
+          btn.setAttribute('aria-pressed', String(!pressed));
+          if (pressed) hidden.add(btn.dataset.drug); else hidden.delete(btn.dataset.drug);
+          render();
+        });
+      });
+      render();
+    }
+
+    return { setData };
+  }
+
+  const generalChart = makeLineChart(
+    document.getElementById('trend-svg'), document.getElementById('trend-tip'),
+    document.getElementById('trend-legend'), 'kayıt',
+  );
+  getJSON('/api/trend').then(data => {
+    trendData = data;
+    generalChart.setData({ ...data, key: 'genel' }, seriesColors);
+    renderPersonTrend();
+  }).catch(showServerError);
+
+  /* ---------- 02b kişi bazlı yıllık ilaç trendi ---------- */
+  const patientCodes = {};
+  const personBox = document.getElementById('person-trend');
+  const personStatus = document.getElementById('person-trend-status');
+  const personTitle = document.getElementById('person-trend-title');
+  const personMeta = document.getElementById('person-trend-meta');
+  const personIntro = personMeta.textContent;
+  const PERSON_TOP_N = 6;
+  const personChart = makeLineChart(
+    document.getElementById('person-trend-svg'), document.getElementById('person-trend-tip'),
+    document.getElementById('person-trend-legend'), 'kayıt günü',
+  );
+  let personData = null, personRequest = 0;
+
+  async function loadPersonTrend(patientId) {
+    const requestId = ++personRequest;
+    if (!patientId) {
+      personData = null; personBox.hidden = true; personStatus.textContent = '';
+      personTitle.textContent = 'Bir kişi seçin'; personMeta.textContent = personIntro;
+      return;
+    }
+    personStatus.textContent = 'Kişinin ilaç kayıtları yükleniyor…';
+    try {
+      const data = await getJSON('/api/hasta-ilac-trendi?hasta_id=' + encodeURIComponent(patientId));
+      if (requestId !== personRequest) return;
+      personData = data;
+      personStatus.textContent = '';
+      renderPersonTrend();
+    } catch (err) {
+      if (requestId !== personRequest) return;
+      personData = null; personBox.hidden = true;
+      personStatus.textContent = 'Kişi grafiği hazırlanamadı: ' + err.message;
+    }
+  }
+
+  // Renk ilaca bağlıdır: genel grafikteki ilaçlar aynı rengi korur, diğerleri boştaki renkleri alır.
+  function personColors(drugs) {
+    const general = trendData ? trendData.ilaclar : [];
+    const byDrug = {};
+    const used = new Set();
+    drugs.forEach(d => { const i = general.indexOf(d); if (i >= 0) { byDrug[d] = seriesColors[i]; used.add(i); } });
+    const free = seriesColors.filter((_, i) => !used.has(i));
+    drugs.forEach(d => { if (!byDrug[d]) byDrug[d] = free.shift(); });
+    return drugs.map(d => byDrug[d]);
+  }
+
+  function describeChange(ch) {
+    const parts = [];
+    if (ch.eklenen_ilaclar.length) parts.push(`<span class="chg-add">+ ${ch.eklenen_ilaclar.map(escapeHTML).join(', ')}</span>`);
+    if (ch.sonraki_kayitta_listelenmeyen_ilaclar.length) parts.push(`${ch.sonraki_kayitta_listelenmeyen_ilaclar.map(escapeHTML).join(', ')} bu notta yok`);
+    if (ch.doz_veya_siklik_degisikligi_olan_ilaclar.length) parts.push(`${ch.doz_veya_siklik_degisikligi_olan_ilaclar.map(escapeHTML).join(', ')} doz/sıklık değişti`);
+    return parts.join(' · ');
+  }
+
+  function renderPersonTrend() {
+    if (!personData) return;
+    const { yillar, ilaclar, zaman_noktalari: points, degisimler, yillik_kayit_gunu: yearly } = personData;
+    const code = patientCodes[personData.hasta_id] || ('#' + personData.hasta_id);
+    const shown = ilaclar.slice(0, PERSON_TOP_N);
+    personBox.hidden = false;
+    personTitle.textContent = `${code} · yıllara göre en sık kayıtlı ${shown.length} ilaç`;
+    const rest = ilaclar.length - shown.length;
+    const outside = personData.pencere_disi_kayit_gunu
+      ? ` · bu yılların dışında ${fmtInt(personData.pencere_disi_kayit_gunu)} kayıt günü daha var` : '';
+    personMeta.textContent = ilaclar.length
+      ? `${fmtInt(points.length)} ilaç kayıtlı gün · ${ilaclar.length} farklı ilaç · ${degisimler.length} gözlenen değişim${rest > 0 ? ` · kalan ${rest} ilaç tablo görünümünde` : ''}${outside}`
+      : `Bu yıllar arasında yüksek güvenli ilaç kaydı yok${outside}.`;
+
+    personChart.setData({ yillar, ilaclar: shown, veri: yearly, key: personData.hasta_id }, personColors(shown));
+
+    document.getElementById('person-trend-note').textContent = personData.sinirlilik_notu;
+    document.getElementById('person-change-summary').textContent = `Değişim günlüğü (${degisimler.length})`;
+    document.getElementById('person-change-log').innerHTML = degisimler.length
+      ? degisimler.map(ch => `<li><time>${escapeHTML(ch.tarih)}</time><span>${describeChange(ch)}</span></li>`).join('')
+      : '<li><span class="empty-note">Bu yıllar arasında gözlenen değişim yok.</span></li>';
+    document.getElementById('person-trend-table').innerHTML = ilaclar.length
+      ? `<table><thead><tr><th>İlaç</th>${yillar.map(y => `<th>${y}</th>`).join('')}<th>Toplam</th></tr></thead><tbody>` +
+        ilaclar.map(d => `<tr><td>${escapeHTML(d)}</td>${yillar.map(y => `<td>${yearly[d][y] || 0}</td>`).join('')}<td>${Object.values(yearly[d]).reduce((a, b) => a + b, 0)}</td></tr>`).join('') +
+        '</tbody></table>'
+      : '<p class="empty-note">Bu aralıkta kayıt yok.</p>';
+  }
+
+  function renderThemeList(themes, kind = '', symptomCount = 0, uncertainCount = 0) {
+    return themes.length
+      ? themes.map(theme => `<span class="theme-pill ${kind}">${escapeHTML(theme)}</span>`).join('')
+      : symptomCount === 0
+        ? '<span style="color:var(--ink-faint);font-size:12px">Bu tarihte aktif semptom ifadesi yok</span>'
+        : `<span style="color:var(--accent);font-size:12px">${symptomCount} aktif semptom ifadesinin ${uncertainCount || symptomCount} tanesi tanımlı geniş temalara henüz eklenmemiş</span>`;
+  }
+  function changeTypeLabel(type) {
+    return {
+      ilac_kaydi_degisimi: 'İlaç kaydı değişimi',
+      ilac_ekleme: 'İlaç kaydına ekleme',
+      kayitta_listelenmeme: 'Sonraki kayıtta listelenmeme',
+      doz_veya_siklik_degisimi: 'Doz veya sıklık kaydı değişimi',
+    }[type] || 'İlaç kaydındaki değişim';
+  }
+  getJSON('/api/tedavi-gecis-istatistikleri').then(data => {
+    if (!data.mevcut && data.mesaj) {
+      document.getElementById('transition-stats').textContent = data.mesaj;
+      return;
+    }
+    const rows = data.gecisler.filter(row =>
+      row.semptom_kaydi_olan_takip_sayisi >= 3 && row.gecis !== 'Doz / sıklık değişimi'
+    );
+    const visible = (rows.length ? rows : data.gecisler).slice(0, 6);
+    document.getElementById('transition-stats').innerHTML = visible.length
+      ? `<p style="margin:8px 0 12px;color:var(--ink-soft)">${fmtInt(data.analiz_edilen_hasta_sayisi)} kişi · değişimden sonraki en fazla ${data.takip_penceresi_gun} gündeki ilk semptom kayıtlı takip. En az 3 takipli geçiş gösterilir.</p>` + visible.map(row => {
+          const missing = row.takipte_kayitta_gorunmeyen_temalar.map(([theme, count]) => `${escapeHTML(theme)} (${count})`).join(', ') || '—';
+          const emerging = row.takipte_yeni_gorunen_temalar.map(([theme, count]) => `${escapeHTML(theme)} (${count})`).join(', ') || '—';
+          return `<div class="transition-summary"><strong>${escapeHTML(row.gecis)}</strong><div class="muted">${fmtInt(row.semptom_kaydi_olan_takip_sayisi)} takip<br>Ort. ${row.ortalama_takip_gunu ?? '—'} gün</div><div class="muted"><strong>Takipte kayda geçmeyen</strong><br>${missing}</div><div class="muted"><strong>Takipte yeni görünen</strong><br>${emerging}</div></div>`;
+        }).join('') + `<p class="quality-note warn">${escapeHTML(data.sinirlilik_notu)}</p>`
+      : '<span>Yeterli takip kaydı olan ilaç geçişi bulunamadı.</span>';
+  }).catch(err => {
+    document.getElementById('transition-stats').textContent = 'Geçiş istatistiği henüz hazır değil: ' + err.message;
+  });
+
+  const transitionPatient = document.getElementById('transition-patient');
+  const transitionPatientDetail = document.getElementById('transition-patient-detail');
+  const trendPatient = document.getElementById('trend-patient');
+  getJSON('/api/tedavi-gecis-hastalar').then(data => {
+    const options = data.hastalar.map(row => {
+      patientCodes[row.hasta_id] = row.kod;
+      return `<option value="${row.hasta_id}">${row.kod} · ${row.gozlenen_degisim_sayisi} değişim</option>`;
+    }).join('');
+    transitionPatient.innerHTML = '<option value="">Kişi kodu seçin</option>' + options;
+    trendPatient.innerHTML = '<option value="">Kişi seçilmedi — yalnızca genel trend</option>' + options;
+  }).catch(err => {
+    transitionPatient.innerHTML = '<option value="">Kişi listesi yüklenemedi</option>';
+    trendPatient.innerHTML = '<option value="">Kişi listesi yüklenemedi</option>';
+    console.error(err);
+  });
+  trendPatient.addEventListener('change', () => {
+    transitionPatient.value = trendPatient.value;
+    loadPersonTrend(trendPatient.value);
+  });
+  transitionPatient.addEventListener('change', () => {
+    trendPatient.value = transitionPatient.value;
+    loadPersonTrend(transitionPatient.value);
+  });
+  document.getElementById('transition-patient-btn').addEventListener('click', async () => {
+    if (!transitionPatient.value) return;
+    transitionPatientDetail.textContent = 'Zaman çizelgesi hazırlanıyor…';
+    try {
+      const data = await getJSON('/api/hasta-tedavi-gecis?hasta_id=' + encodeURIComponent(transitionPatient.value));
+      transitionPatientDetail.innerHTML = data.gecisler.length
+        ? `<p style="margin:14px 0 8px;color:var(--ink-soft);font-size:13px">${data.gecisler.length} gözlenen değişim bulundu. İlk iki kart açık gelir; diğerlerini başlığa tıklayarak açabilirsin.</p>` + data.gecisler.map((row, index) => {
+            const followUp = row.takip_durumu === 'takipte_semptom_kaydi_var';
+            const followTitle = followUp ? `Takip · ${row.takibe_kadar_gun} gün sonra` : 'Takip kaydı yok';
+            const followThemes = followUp ? renderThemeList(row.takip_temalari, '', row.takip_semptom_ifade_sayisi, row.takip_belirsiz_ifade_sayisi) : '<span style="color:var(--accent);font-size:12px">90 gün içinde semptom kaydı yok</span>';
+            return `<details class="transition-detail" ${index < 2 ? 'open' : ''}><summary>${escapeHTML(row.onceki_tarih)} · ${escapeHTML(row.onceki_rejim.join(' + '))} <span style="color:var(--accent)">→</span> ${escapeHTML(row.yeni_rejim.join(' + '))}</summary><div class="transition-flow"><div class="flow-step"><div class="flow-label">Önce</div><div class="flow-title">${escapeHTML(row.onceki_tarih)}</div>${renderThemeList(row.onceki_kayit_temalari, '', row.onceki_semptom_ifade_sayisi, row.onceki_belirsiz_ifade_sayisi)}</div><div class="flow-arrow">→</div><div class="flow-step"><div class="flow-label">İlaç kaydı</div><div class="flow-title">${escapeHTML(changeTypeLabel(row.degisim_tipi))}</div>${escapeHTML(row.yeni_rejim.join(' + '))}</div><div class="flow-arrow">→</div><div class="flow-step"><div class="flow-label">${followTitle}</div><div class="flow-title">Kayıtlı temalar</div>${followThemes}</div></div>${followUp ? `<div class="transition-deltas"><div><strong>Takipte kayda geçmeyen:</strong><br>${renderThemeList(row.kayitta_gorunmeyen_temalar, 'missing')}</div><div><strong>Takipte yeni görünen:</strong><br>${renderThemeList(row.takipte_yeni_gorunen_temalar, 'new')}</div></div>` : ''}</details>`;
+          }).join('') + `<p class="quality-note warn">${escapeHTML(data.sinirlilik_notu)}</p>`
+        : 'Bu kişi için karşılaştırılabilir ilaç değişimi bulunamadı.';
+    } catch (err) { transitionPatientDetail.textContent = 'Karşılaştırma hazırlanamadı: ' + err.message; }
+  });
+
+  /* ---------- 03 kategoriler ---------- */
+  getJSON('/api/kategoriler').then(data => {
+    const catNames = Object.keys(data.kategoriler);
+    const baselineMap = Object.fromEntries(data.baseline.map(b => [b.ilac, b.yuzde]));
+    document.getElementById('cat-chips').innerHTML = catNames.map((c, i) =>
+      `<button class="cat-chip" aria-pressed="${i === 0}" data-cat="${c}">${c} <span class="n">${fmtInt(data.kategoriler[c].ziyaret_sayisi)}</span></button>`
+    ).join('');
+
+    function renderCategory(name) {
+      const cat = data.kategoriler[name];
+      const maxYuzde = Math.max(1, ...cat.ilaclar.map(d => Math.max(d.yuzde, baselineMap[d.ilac] || 0)));
+      const rows = cat.ilaclar.map(d => {
+        const base = baselineMap[d.ilac] || 0;
+        const lift = base > 0 ? (d.yuzde / base) : 1;
+        const liftTxt = lift >= 1.15 ? `<span class="lift-up">&#9650; ${lift.toFixed(1)}x genel</span>` : (lift <= 0.87 ? `<span class="lift-dn">&#9660; ${lift.toFixed(1)}x genel</span>` : `<span class="lift-dn">&asymp; genel</span>`);
+        return `<div class="bar-row">
+          <div>${d.ilac}</div>
+          <div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(d.yuzde / maxYuzde * 100).toFixed(1)}%"></div></div>
+            <div class="bar-track" style="margin-top:3px;height:8px"><div class="bar-fill baseline" style="width:${(base / maxYuzde * 100).toFixed(1)}%"></div></div>
+          </div>
+          <div class="bar-num"><strong>%${d.yuzde}</strong> ${liftTxt}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('cat-detail').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          <h3 style="font-size:19px">${name}</h3>
+          <span class="eyebrow mono">${fmtInt(cat.ziyaret_sayisi)} ziyaret eşleşti</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:12.5px;margin-bottom:16px">Sorgu ifadeleri: <em>${cat.tohumlar.join(', ')}</em></p>
+        ${rows}`;
+    }
+    document.querySelectorAll('.cat-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.cat-chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
+        chip.setAttribute('aria-pressed', 'true');
+        renderCategory(chip.dataset.cat);
+      });
+    });
+    renderCategory(catNames[0]);
+  }).catch(showServerError);
+
+  /* ---------- 04 canlı sorgu ---------- */
+  const form = document.getElementById('query-form');
+  const input = document.getElementById('query-input');
+  const characterCount = document.getElementById('query-character-count');
+  const ageInput = document.getElementById('query-age');
+  const genderInput = document.getElementById('query-gender');
+  const submitBtn = document.getElementById('query-submit');
+  const resultBox = document.getElementById('query-result');
+  const emptyNote = document.getElementById('query-empty');
+  const ozetBtn = document.getElementById('ozet-btn');
+  const secondOpinionBtn = document.getElementById('second-opinion-btn');
+  const summaryBox = document.getElementById('summary-box');
+  const secondOpinionBox = document.getElementById('second-opinion-box');
+  const evidenceBox = document.getElementById('evidence-box');
+  const qwenStatus = document.getElementById('qwen-status');
+  let lastQuery = null;
+  const escapeHTML = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+
+  getJSON('/api/status').then(data => {
+    const ready = !!(data.qwen?.kullanilabilir && data.qwen?.model_yuklu);
+    ozetBtn.disabled = !ready;
+    secondOpinionBtn.disabled = !ready;
+    qwenStatus.textContent = ready
+      ? 'Qwen yerel olarak kullanılabilir.'
+      : 'Qwen şu an kullanılamıyor (Ollama kurulu değil veya çalışmıyor). Ana analiz bundan etkilenmez.';
+    qwenStatus.classList.toggle('warn', !ready);
+  }).catch(() => {
+    qwenStatus.textContent = 'Qwen şu an kullanılamıyor (Ollama kurulu değil veya çalışmıyor). Ana analiz bundan etkilenmez.';
+    qwenStatus.classList.add('warn');
+  });
+
+  async function runQuery(text, ozetIste) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span>Aranıyor';
+    try {
+      const data = await getJSON('/api/sorgu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sorgu: text, yas: ageInput.value, cinsiyet: genderInput.value, ozet_iste: !!ozetIste }),
+      });
+      lastQuery = { sorgu: text, yas: ageInput.value, cinsiyet: genderInput.value };
+      renderQueryResult(data);
+    } catch (err) {
+      emptyNote.textContent = 'Sorgu başarısız: sunucuya ulaşılamadı.';
+      emptyNote.style.display = 'block';
+      resultBox.style.display = 'none';
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Ara';
+    }
+  }
+
+  function renderQueryResult(data) {
+    emptyNote.style.display = 'none';
+    resultBox.style.display = 'block';
+    summaryBox.classList.remove('show');
+    summaryBox.textContent = '';
+    secondOpinionBox.classList.remove('show');
+    secondOpinionBox.textContent = '';
+
+    const combined = data.birlesik;
+    const clauses = data.analiz_edilen_ifadeler.map(clause => {
+      const tags = clause.kategoriler.length
+        ? clause.kategoriler.map(theme => `<span class="theme-tag">${escapeHTML(theme.kategori)} · ${theme.eslesme_turu === 'ifade' ? 'ifade eşleşmesi' : 'anlamsal ' + theme.benzerlik.toFixed(2)}</span>`).join('')
+        : '<span class="theme-tag uncertain">Güvenle bir temaya eşleştirilemedi</span>';
+      const quality = clause.kalite_sinyali || {};
+      const qualityClass = ['belirsiz', 'anlamsal_belirsizlik', 'olumsuzlama_kontrolu'].includes(quality.durum) ? ' warn' : '';
+      return `<div class="analysis-clause"><div class="user-phrase">“${escapeHTML(clause.ifade)}”</div><div class="theme-tags">${tags}</div><div class="quality-note${qualityClass}">${escapeHTML(quality.mesaj || '')}</div></div>`;
+    }).join('') || '<div class="empty-note">Analiz edilebilecek yeterli ifade bulunamadı.</div>';
+    const expandedSearchNote = data.kategori_disinda_semantik_arama?.length
+      ? `<p class="semantic-note">Etiketi belirsiz kalan ${data.kategori_disinda_semantik_arama.length} ifade de anlamsal aramaya dahil edildi: ${data.kategori_disinda_semantik_arama.map(item => `“${escapeHTML(item.ifade)}”`).join(' · ')}. Bu ifadeler için ayrı tema kartı oluşturulmadı.</p>`
+      : '';
+    const safetyNote = data.guvenlik_uyarisi
+      ? `<p class="safety-note">${escapeHTML(data.guvenlik_uyarisi)}</p>`
+      : '';
+    const profileMessage = combined.uyumlu_ziyaret_sayisi
+      ? `<p><strong>${combined.yas} yaş · ${escapeHTML(combined.cinsiyet)}</strong> profili için, seçilen temalara ait semantik eşleşmelerden <strong>${fmtInt(combined.uyumlu_hasta_sayisi)} kişi / ${fmtInt(combined.uyumlu_ziyaret_sayisi)} ziyaret</strong> yaş ve cinsiyet filtresinden geçti.</p>`
+      : `<p>Seçilen profil ile uyumlu, doğrulanmış geçmiş ziyaret bulunamadı.</p>`;
+    document.getElementById('profile-match').innerHTML = clauses + safetyNote + profileMessage + expandedSearchNote + (combined.kucuk_orneklem && combined.uyumlu_ziyaret_sayisi ? '<p style="color:var(--accent)">Örneklem küçüktür; sonuç yalnızca keşif amaçlıdır.</p>' : '');
+
+    const renderDrugBars = drugs => {
+      const maxY = Math.max(1, ...drugs.map(d => d.yuzde));
+      return drugs.length
+        ? drugs.map(d => `<div class="bar-row" style="grid-template-columns:96px 1fr 70px"><div>${escapeHTML(d.ilac)}</div><div class="bar-track"><div class="bar-fill" style="width:${(d.yuzde / maxY * 100).toFixed(1)}%"></div></div><div class="bar-num"><strong>%${d.yuzde}</strong></div></div>`).join('')
+        : '<div class="empty-note">Bu tema ve profil için yeterli yüksek güvenli ilaç kaydı yok.</div>';
+    };
+    document.getElementById('query-drug-label').textContent = `Birleşik ilaç dağılımı — ${fmtInt(combined.uyumlu_ziyaret_sayisi)} uyumlu ziyaret`;
+    document.getElementById('query-drugs').innerHTML = renderDrugBars(combined.ilaclar);
+    evidenceBox.innerHTML = `<strong>Kanıt özeti</strong><br>${escapeHTML(data.kanit_ozeti.metin)}<span class="warning">${escapeHTML(data.kanit_ozeti.uyari)}</span>`;
+    document.getElementById('theme-results').innerHTML = data.kategoriler.length
+      ? data.kategoriler.map(theme => `<div class="theme-card"><h3>${escapeHTML(theme.kategori)}</h3><p style="color:var(--ink-soft);font-size:13px;margin:5px 0 10px">Kullanıcı ifadeleri: ${theme.kullanici_ifadeleri.map(escapeHTML).join(' · ')}<br>${fmtInt(theme.uyumlu_hasta_sayisi)} kişi / ${fmtInt(theme.uyumlu_ziyaret_sayisi)} ziyaret${theme.kucuk_orneklem ? ' · <span style="color:var(--accent)">küçük örneklem</span>' : ''}</p>${renderDrugBars(theme.ilaclar.slice(0, 4))}</div>`).join('')
+      : '<div class="empty-note">Geniş tema etiketi bulunamadı; varsa kategori dışı semantik arama birleşik sonuçta ayrıca belirtilir.</div>';
+
+    if (data.ozet) {
+      summaryBox.textContent = data.ozet;
+      summaryBox.classList.add('show');
+    }
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!genderInput.value) { emptyNote.textContent = 'Lütfen cinsiyet seçin.'; emptyNote.style.display = 'block'; return; }
+    if (!text) { emptyNote.textContent = 'Lütfen en az bir yakınma yazın.'; emptyNote.style.display = 'block'; return; }
+    runQuery(text, false);
+  });
+  document.querySelectorAll('#query-examples button').forEach(btn => {
+    btn.addEventListener('click', () => { input.value = btn.dataset.q; characterCount.textContent = input.value.length; if (genderInput.value) runQuery(btn.dataset.q, false); });
+  });
+  input.addEventListener('input', () => { characterCount.textContent = input.value.length; });
+  ozetBtn.addEventListener('click', async () => {
+    if (!lastQuery) return;
+    ozetBtn.disabled = true;
+    ozetBtn.innerHTML = '<span class="spinner" style="border-color:color-mix(in oklab, var(--accent) 40%, transparent);border-top-color:var(--accent)"></span>Qwen düşünüyor; eski bilgisayarlarda bir dakika kadar sürebilir&hellip;';
+    try {
+      const data = await getJSON('/api/sorgu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sorgu: lastQuery.sorgu, yas: lastQuery.yas, cinsiyet: lastQuery.cinsiyet, ozet_iste: true }),
+      });
+      summaryBox.textContent = data.ozet || 'Açıklayıcı not üretilemedi.';
+      if (data.ozet_kaynagi === 'sabit') {
+        summaryBox.textContent += ' Model çıktısı güvenlik/doğruluk kontrolünü geçmediği için sabit güvenli açıklama gösterildi.';
+      }
+      summaryBox.classList.add('show');
+    } catch (err) {
+      summaryBox.textContent = 'Özet isteği gerçekleştirilemedi: ' + err.message;
+      summaryBox.classList.add('show');
+    } finally {
+      ozetBtn.disabled = false;
+      ozetBtn.textContent = 'Qwen ile açıklayıcı not üret';
+    }
+  });
+
+  secondOpinionBtn.addEventListener('click', async () => {
+    if (!lastQuery) return;
+    secondOpinionBtn.disabled = true;
+    secondOpinionBtn.innerHTML = '<span class="spinner"></span>Qwen düşünüyor; eski bilgisayarlarda bir dakika kadar sürebilir&hellip;';
+    try {
+      const data = await getJSON('/api/ikinci-gorus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sorgu: lastQuery.sorgu }),
+      });
+      const rows = data.ifade_karsilastirmalari.map(row =>
+        `“${escapeHTML(row.ifade)}”: <strong>${escapeHTML(row.durum.replaceAll('_', ' '))}</strong> — ${escapeHTML(row.mesaj)}`
+      ).join('<br><br>');
+      secondOpinionBox.innerHTML = `<strong>Otomatik yöntem karşılaştırması</strong><br>${rows}<span class="warning">${escapeHTML(data.sinirlilik_notu)}</span>`;
+      secondOpinionBox.classList.add('show');
+    } catch (err) {
+      secondOpinionBox.textContent = 'İkinci yöntem kontrolü çalıştırılamadı: ' + err.message;
+      secondOpinionBox.classList.add('show');
+    } finally {
+      secondOpinionBtn.disabled = false;
+      secondOpinionBtn.textContent = 'Qwen ile ikinci yöntem kontrolü';
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+TRSM Demo Kurulumu
+===================
+
+1. Zip dosyasini dogrudan C:\ surucusune tamamen cikariniz. Bunun sonunda
+   C:\TRSM_Demo klasoru olusmalidir. Masaustu OneDrive'a bagli olabilecegi icin
+   Masaustu onerilmez. Zip dosyasinin icinden calistirmayiniz.
+
+2. Windows kullanicilari Baslat.bat dosyasina cift tiklasin.
+   "Windows bilgisayarinizi korudu" uyarisi gorunurse:
+   Ek bilgi -> Yine de calistir seciniz.
+
+3. Ilk acilista internet baglantisi gerekir; birkac yuz MB dosya indirilecektir.
+   Sonraki acilislarda internet gerekmez (Google yazilari hariç).
+   Ilk kurulum eski bilgisayarlarda 10-15 dakika surebilir. Bu sirada siyah
+   pencereyi kapatmayiniz. Kurulum tamamlaninca tarayici kendiliginden acilir.
+
+4. Qwen istege baglidir. Bilgisayarinizda 8 GB veya daha fazla RAM varsa
+   ollama.com adresinden Ollama kurulmasi onerilir. Kurmazsaniz da ana analiz calisir.
+
+5. Uygulamayi kapatmak icin siyah pencereyi kapatiniz.
+
+Sik gorulen sorunlar
+--------------------
+- Tarayici acilmadiysa: once birkac dakika bekleyiniz. Hala acilmazsa tarayiciya
+  http://127.0.0.1:8765 yaziniz.
+- Ilk kurulum hata verdiyse: internet baglantisini kontrol edip Baslat.bat'i yeniden calistiriniz.
+- "SSL/TLS" hatasi gorulurse: Windows Update'i calistirip bilgisayari guncelleyiniz;
+  sonra Baslat.bat'i tekrar deneyiniz.
+- c10.dll veya "DLL load failed" hatasi varsa: Microsoft Visual C++ Redistributable x64
+  paketini kurunuz: https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Qwen kullanilamiyorsa: ana analiz calismaya devam eder. Ollama'nin kurulu ve calisir
+  oldugunu kontrol ediniz.
+
+Mac kullanicilari
+-----------------
+Baslat.command dosyasina sag tiklayip Ac secenegini kullaniniz. Ilk acilista macOS
+onay isteyebilir.
