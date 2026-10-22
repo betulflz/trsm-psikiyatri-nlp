@@ -28,6 +28,12 @@ beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
+it('OCR metni sayfa sırasıyla saklanır ve eski taslaklar okunabilir', async () => {
+  const report = { ...draft('ocr', null), ocr: [{ metin: 'Rapor metni', motor: 'tesseract', dil: 'eng' }] };
+  await prefs.setDrafts([report, draft('eski', null)]);
+  expect(await prefs.getDraftsFor(1)).toEqual([report, draft('eski', null)]);
+});
+
 it('T.C. Kimlik No düz metin AsyncStorage içine yazılmaz, okununca geri gelir', async () => {
   await prefs.setDrafts([draft('t1', '10000000146')]);
   const raw = (await AsyncStorage.getItem('psikord.taslaklar')) ?? '';

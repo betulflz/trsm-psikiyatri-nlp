@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuth } from '@/auth/AuthProvider';
@@ -12,12 +12,14 @@ import { validateKimlik, type KimlikForm } from './dogrulama';
 import { KimlikAdimi } from './KimlikAdimi';
 import { RaporAdimi } from './RaporAdimi';
 import { deleteDraft, saveDraft } from './taslak';
+import type { PageOcr, ReportOcr } from './ocr';
+import { createReportUpload } from './ocr';
 
 const EMPTY: KimlikForm = { adSoyad: '', cinsiyet: null, dogumTarihi: null, tcKimlik: '' };
 
 export function YeniHastaEkrani() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, client } = useAuth();
   const ownerId = user?.id ?? 0;
   const [adim, setAdim] = useState<1 | 2 | 'bitti'>(1);
   const [form, setForm] = useState<KimlikForm>(EMPTY);
@@ -25,6 +27,30 @@ export function YeniHastaEkrani() {
   const [pages, setPages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [drafts, setDrafts] = useState<DraftPatient[]>([]);
+  const [ocr, setOcr] = useState<Record<string, PageOcr>>({});
+  const [reading, setReading] = useState(false);
+  const readingRef = useRef(false);
+
+  async function readPages(uris: string[]) {
+    if (readingRef.current) return;
+    readingRef.current = true;
+    setReading(true);
+    try {
+      for (const uri of uris) {
+        setOcr((old) => ({ ...old, [uri]: { status: 'loading' } }));
+        try {
+          const body = createReportUpload(uri);
+          const result = await client.upload<ReportOcr>('/api/m/rapor/ocr', body);
+          setOcr((old) => ({ ...old, [uri]: { status: 'done', result } }));
+        } catch (error) {
+          setOcr((old) => ({ ...old, [uri]: { status: 'error', error: error instanceof Error ? error.message : 'Rapor okunamadı.' } }));
+        }
+      }
+    } finally {
+      readingRef.current = false;
+      setReading(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -41,7 +67,7 @@ export function YeniHastaEkrani() {
   async function save() {
     setSaving(true);
     try {
-      await saveDraft(form, pages, ownerId);
+      await saveDraft(form, pages, ownerId, pages.map((uri) => ocr[uri]?.result ?? null));
       setDrafts(await prefs.getDraftsFor(ownerId));
       setAdim('bitti');
     } catch {
@@ -54,6 +80,7 @@ export function YeniHastaEkrani() {
   function reset() {
     setForm(EMPTY);
     setPages([]);
+    setOcr({});
     setErrors({});
     setAdim(1);
   }
@@ -81,14 +108,14 @@ export function YeniHastaEkrani() {
       )}
       {adim === 2 && (
         <Animated.View entering={FadeInDown.duration(350)}>
-          <RaporAdimi pages={pages} onChange={setPages} onBack={() => setAdim(1)} onSave={save} saving={saving} />
+          <RaporAdimi pages={pages} onChange={setPages} onBack={() => setAdim(1)} onSave={save} saving={saving} ocr={ocr} reading={reading} onRead={readPages} />
         </Animated.View>
       )}
       {adim === 'bitti' && (
         <View style={{ gap: 18, paddingVertical: 20 }}>
-          <Stamp title="HENÜZ OKUNMADI" subtitle="ANALİZ EDİLMİŞ RAPOR YOK" />
+          <Stamp title="TASLAK KAYDEDİLDİ" subtitle="RAPOR SAYFALARI VE OCR SONUÇLARI" />
           <Text variant="bodySmall" color="inkMuted" style={{ textAlign: 'center' }}>
-            Taslak bu cihazda saklandı. Sunucuya kayıt ve OCR bir sonraki aşamada eklenecek.
+            Fotoğraflar ve okunabilen metinler bu cihazda saklandı. Hasta kaydı henüz sunucuya eklenmedi.
           </Text>
           <Button title="Yeni dosya başlat" onPress={reset} />
         </View>
@@ -112,6 +139,11 @@ export function YeniHastaEkrani() {
                 </Text>
               </View>
               <Chip label="Taslak" tone="danger" />
+              {draft.ocr?.some((item) => item?.metin) && (
+                <Pressable accessibilityLabel="Okunan raporu göster" onPress={() => Alert.alert('Rapor metni', draft.ocr?.map((item, i) => `Sayfa ${i + 1}\n${item?.metin || 'Metin okunamadı.'}`).join('\n\n'))}>
+                  <Text variant="label" color="primary">Metni gör</Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityLabel="Taslağı sil"
                 hitSlop={8}

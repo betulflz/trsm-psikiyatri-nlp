@@ -4,9 +4,11 @@ from datetime import date
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
+from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, read_report
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
 from trsm.mobile_api.users import authenticate, get_user, list_users
 
@@ -99,6 +101,20 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
     def overview():
         with connect() as conn:
             return jsonify(queries.summary(conn, confidence_threshold))
+
+    @bp.post("/rapor/ocr")
+    @requires(*CLINICAL_ROLES)
+    def report_ocr():
+        request.max_content_length = MAX_IMAGE_BYTES + 64 * 1024
+        try:
+            photo = request.files.get("foto")
+            if photo is None:
+                return _error(400, "foto_gerekli", "Bir rapor fotoğrafı seçin.")
+            return jsonify(read_report(photo.read(MAX_IMAGE_BYTES + 1)))
+        except RequestEntityTooLarge:
+            return _error(413, "foto_buyuk", "Fotoğraf en fazla 12 MB olabilir.")
+        except OcrError as exc:
+            return _error(exc.status, "ocr_hatasi", str(exc))
 
     @bp.get("/hastalar")
     @requires(*CLINICAL_ROLES)

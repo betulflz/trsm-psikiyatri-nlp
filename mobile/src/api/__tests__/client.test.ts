@@ -32,6 +32,17 @@ it('başarılı GET token ekler ve JSON döner', async () => {
   expect(init.headers.Authorization).toBe('Bearer tok');
 });
 
+it('OCR yüklemesi multipart gövdeyi ve tokenı korur; boundary fetch tarafından eklenir', async () => {
+  const fetchImpl = jest.fn(() => jsonResponse(200, { metin: 'Rapor' }));
+  const { client } = makeClient(fetchImpl);
+  const body = new FormData();
+  body.append('foto', 'test');
+  await expect(client.upload('/api/m/rapor/ocr', body)).resolves.toEqual({ metin: 'Rapor' });
+  const init = (fetchImpl.mock.calls as unknown as [string, RequestInit][])[0][1];
+  expect(init.body).toBe(body);
+  expect(init.headers).toEqual({ Accept: 'application/json', Authorization: 'Bearer tok' });
+});
+
 it('token yoksa Authorization başlığı yok', async () => {
   const fetchImpl: AnyMock = jest.fn(() => jsonResponse(200, {}));
   const { client } = makeClient(fetchImpl, null);

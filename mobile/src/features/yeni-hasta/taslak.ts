@@ -11,7 +11,7 @@ export function movePage(pages: string[], index: number, delta: -1 | 1): string[
 }
 
 /** Görselleri uygulama belgeler dizinine kopyalar (önbellek temizlense de kalsın) ve taslağı kaydeder. */
-export async function saveDraft(form: KimlikForm, pageUris: string[], ownerId: number): Promise<DraftPatient> {
+export async function saveDraft(form: KimlikForm, pageUris: string[], ownerId: number, ocr?: DraftPatient['ocr']): Promise<DraftPatient> {
   const id = `taslak-${Date.now()}`;
   const dir = new Directory(Paths.document, 'taslaklar', id);
   dir.create({ intermediates: true });
@@ -28,6 +28,7 @@ export async function saveDraft(form: KimlikForm, pageUris: string[], ownerId: n
     dogumTarihi: form.dogumTarihi,
     tcKimlik: form.tcKimlik || null,
     sayfalar,
+    ocr,
     olusturma: new Date().toISOString(),
   };
   await prefs.setDrafts([draft, ...(await prefs.getDrafts())]); // tümünü okuyup yazar; başka kullanıcıların taslakları korunur

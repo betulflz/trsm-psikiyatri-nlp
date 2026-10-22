@@ -17,6 +17,7 @@ export type DraftPatient = {
   dogumTarihi: string | null; // YYYY-MM-DD
   tcKimlik: string | null;
   sayfalar: string[]; // uygulama dizinindeki dosya URI'leri, sıralı
+  ocr?: ({ metin: string; motor: string; dil: string } | null)[]; // sayfalarla aynı sıra
   olusturma: string; // ISO
 };
 

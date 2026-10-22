@@ -3,6 +3,7 @@ import { ApiError, kindForStatus } from './errors';
 export type ApiClient = {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown): Promise<T>;
+  upload<T>(path: string, body: FormData): Promise<T>;
 };
 
 type Options = {
@@ -22,19 +23,19 @@ export function createApiClient({
   fetchImpl = fetch,
   timeoutMs = 10_000,
 }: Options): ApiClient {
-  async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, upload = false): Promise<T> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), upload ? 65_000 : timeoutMs);
     const token = getToken();
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (body !== undefined && !upload) headers['Content-Type'] = 'application/json';
     let response: Response;
     try {
       response = await fetchImpl(getBaseUrl().replace(/\/+$/, '') + path, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: upload ? body as FormData : body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
     } catch {
@@ -58,5 +59,6 @@ export function createApiClient({
   return {
     get: (path) => request('GET', path),
     post: (path, body) => request('POST', path, body),
+    upload: (path, body) => request('POST', path, body, true),
   };
 }
