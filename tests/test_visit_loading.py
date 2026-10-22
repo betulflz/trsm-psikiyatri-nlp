@@ -1,10 +1,11 @@
 import pandas as pd
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.visit_loading import load_visits
 
 
 def test_load_visits_creates_one_hasta_per_unique_dosya():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     df = pd.DataFrame({
         "Dosya": ["a.pdf", "a.pdf", "b.pdf"],
@@ -24,7 +25,7 @@ def test_load_visits_creates_one_hasta_per_unique_dosya():
 
 
 def test_load_visits_preserves_null_text_as_null():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     df = pd.DataFrame({
         "Dosya": ["a.pdf"],

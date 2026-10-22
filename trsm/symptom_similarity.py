@@ -13,7 +13,7 @@ def build_symptom_index(conn, index_path, model=None, surface_form_index=None):
     symptom" statements are excluded from similarity search.
     """
     cur = conn.cursor()
-    cur.execute("SELECT ziyaret_id, ifade_ham FROM semptom_kaydi")
+    cur.execute("SELECT ziyaret_id, ifade_ham FROM semptom_kaydi ORDER BY id")
     rows = cur.fetchall()
 
     surface_form_index = surface_form_index or build_surface_form_index_from_db(conn)

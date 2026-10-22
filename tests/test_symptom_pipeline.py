@@ -1,4 +1,5 @@
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.symptom_pipeline import run_symptom_extraction
 
 
@@ -9,18 +10,18 @@ class FakeModel:
 
 def _insert_ziyaret(conn, dosya, mudahale):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (dosya,))
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (dosya,))
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, ?, NULL)""",
+           VALUES (%s, '2024-01-01', 1, %s, NULL)""",
         (hasta_id, mudahale),
     )
     conn.commit()
 
 
 def test_run_symptom_extraction_writes_rows_with_consistent_categories():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     # Two unique phrases per category (plus a repeat of each across visits) so
     # that after deduplication there are still >= min_cluster_size unique
@@ -57,7 +58,7 @@ class CountingFakeModel:
 
 
 def test_run_symptom_extraction_deduplicates_identical_phrases_before_clustering():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     # "Uykusuzluk sürüyor" repeats across both visits; "Devam ediyor" is a second unique
     # phrase so there are >= min_cluster_size unique points for HDBSCAN.
@@ -80,7 +81,7 @@ def test_run_symptom_extraction_deduplicates_identical_phrases_before_clustering
 
 
 def test_run_symptom_extraction_filters_out_non_symptom_phrases():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_ziyaret(
         conn,

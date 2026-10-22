@@ -1,4 +1,5 @@
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.medication_pipeline import (
     extract_medications_from_text,
     run_medication_extraction,
@@ -37,14 +38,14 @@ def test_extract_medications_from_text_empty_text_returns_empty_list():
 
 
 def test_run_medication_extraction_writes_rows_to_db():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')")
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id")
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, 'Stilizan 5mg tb -> 3x1', NULL)""",
+           VALUES (%s, '2024-01-01', 1, 'Stilizan 5mg tb -> 3x1', NULL)""",
         (hasta_id,),
     )
     conn.commit()

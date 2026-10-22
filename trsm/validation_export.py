@@ -12,19 +12,19 @@ def _sanitize_csv_field(value):
 
 def export_validation_sample(conn, output_csv, sample_size=30, seed=42):
     cur = conn.cursor()
-    cur.execute("SELECT id FROM hasta")
+    cur.execute("SELECT id FROM hasta ORDER BY id")
     hasta_ids = [row[0] for row in cur.fetchall()]
     random.Random(seed).shuffle(hasta_ids)
     sample_ids = hasta_ids[:sample_size]
 
     rows = []
     if sample_ids:
-        placeholders = ",".join("?" * len(sample_ids))
+        placeholders = ",".join(["%s"] * len(sample_ids))
         cur.execute(
             f"""SELECT h.dosya_adi, z.tarih, z.ham_mudahale_metni, z.ham_sonuc_metni
                 FROM ziyaret z JOIN hasta h ON h.id = z.hasta_id
                 WHERE z.hasta_id IN ({placeholders})
-                ORDER BY h.dosya_adi, z.tarih""",
+                ORDER BY h.dosya_adi, z.tarih, z.id""",
             sample_ids,
         )
         rows = cur.fetchall()
@@ -47,27 +47,27 @@ def export_validation_sample_with_predictions(conn, output_csv, sample_size=30, 
     (yes/no) rather than transcribe drug names from scratch — no clinical
     judgment required, only text verification."""
     cur = conn.cursor()
-    cur.execute("SELECT id FROM hasta")
+    cur.execute("SELECT id FROM hasta ORDER BY id")
     hasta_ids = [row[0] for row in cur.fetchall()]
     random.Random(seed).shuffle(hasta_ids)
     sample_ids = hasta_ids[:sample_size]
 
     rows = []
     if sample_ids:
-        placeholders = ",".join("?" * len(sample_ids))
+        placeholders = ",".join(["%s"] * len(sample_ids))
         cur.execute(
             f"""SELECT
                     h.dosya_adi,
                     z.tarih,
                     z.ham_mudahale_metni,
                     z.ham_sonuc_metni,
-                    (SELECT group_concat(ik.ilac_adi_normalize || ' (' || ik.eslesme_guveni || ')', ' | ')
+                    (SELECT string_agg(ik.ilac_adi_normalize || ' (' || ik.eslesme_guveni::text || ')', ' | ' ORDER BY ik.id)
                      FROM ilac_kullanimi ik WHERE ik.ziyaret_id = z.id) as sistem_ilac_bulgusu,
-                    (SELECT group_concat(sk.ifade_ham, ' | ')
+                    (SELECT string_agg(sk.ifade_ham, ' | ' ORDER BY sk.id)
                      FROM semptom_kaydi sk WHERE sk.ziyaret_id = z.id) as sistem_semptom_bulgusu
                 FROM ziyaret z JOIN hasta h ON h.id = z.hasta_id
                 WHERE z.hasta_id IN ({placeholders})
-                ORDER BY h.dosya_adi, z.tarih""",
+                ORDER BY h.dosya_adi, z.tarih, z.id""",
             sample_ids,
         )
         rows = cur.fetchall()

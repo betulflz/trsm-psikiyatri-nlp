@@ -50,12 +50,13 @@ def profile_matched_visits(conn, similar_matches, age, gender):
     if not best_scores:
         return profile, [], 0
 
-    placeholders = ",".join("?" * len(best_scores))
+    placeholders = ",".join(["%s"] * len(best_scores))
     rows = conn.execute(
         f"""SELECT z.id, z.hasta_id, z.tarih, h.cinsiyet,
                    h.cinsiyet_kaynagi, h.dogum_tarihi, h.dogum_tarihi_kaynagi
               FROM ziyaret z JOIN hasta h ON h.id = z.hasta_id
-              WHERE z.id IN ({placeholders})""",
+              WHERE z.id IN ({placeholders})
+              ORDER BY z.id""",
         list(best_scores),
     ).fetchall()
     compatible = []

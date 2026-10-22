@@ -1,6 +1,7 @@
 import json
 
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.recommendation import (
     TIBBI_UYARI,
     build_contextual_explanatory_note,
@@ -13,17 +14,17 @@ from trsm.recommendation import (
 
 def _insert_medication(conn, ziyaret_id_seed, ilac_adi, eslesme_guveni):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (f"hasta{ziyaret_id_seed}.pdf",))
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (f"hasta{ziyaret_id_seed}.pdf",))
+    hasta_id = cur.fetchone()[0]
     cur.execute(
-        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-01-01', 1)",
+        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-01-01', 1) RETURNING id",
         (hasta_id,),
     )
-    ziyaret_id = cur.lastrowid
+    ziyaret_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, doz, siklik, eslesme_guveni)
-           VALUES (?, ?, ?, NULL, NULL, ?)""",
+           VALUES (%s, %s, %s, NULL, NULL, %s)""",
         (ziyaret_id, ilac_adi, ilac_adi, eslesme_guveni),
     )
     conn.commit()
@@ -31,7 +32,7 @@ def _insert_medication(conn, ziyaret_id_seed, ilac_adi, eslesme_guveni):
 
 
 def test_compute_drug_statistics_computes_percentages_and_orders_by_count():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     z1 = _insert_medication(conn, 1, "Stilizan", 100)
     z2 = _insert_medication(conn, 2, "Stilizan", 95)
@@ -47,7 +48,7 @@ def test_compute_drug_statistics_computes_percentages_and_orders_by_count():
 
 
 def test_compute_drug_statistics_respects_guven_esigi():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     z1 = _insert_medication(conn, 1, "Stilizan", 60)
 
@@ -57,7 +58,7 @@ def test_compute_drug_statistics_respects_guven_esigi():
 
 
 def test_compute_drug_statistics_empty_ziyaret_ids_returns_empty_list():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     assert compute_drug_statistics(conn, []) == []
 

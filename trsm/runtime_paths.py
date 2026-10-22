@@ -12,13 +12,11 @@ def runtime_data_paths():
         data_dir = Path(configured).expanduser().resolve()
         return {
             "data_dir": data_dir,
-            "db": data_dir / "trsm.db",
             "index": data_dir / "symptom_index.npz",
             "transition_stats": data_dir / "tedavi_gecis_istatistikleri.json",
         }
     return {
         "data_dir": PROJECT_ROOT / "data",
-        "db": PROJECT_ROOT / "trsm.db",
         "index": PROJECT_ROOT / "data" / "symptom_index.npz",
         "transition_stats": PROJECT_ROOT / "data" / "tedavi_gecis_istatistikleri.json",
     }

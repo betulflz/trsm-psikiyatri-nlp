@@ -65,7 +65,7 @@ def extract_medications_from_text(text, surface_form_index, threshold=85):
 
 def run_medication_extraction(conn, surface_form_index, threshold=85):
     cur = conn.cursor()
-    cur.execute("SELECT id, ham_mudahale_metni, ham_sonuc_metni FROM ziyaret")
+    cur.execute("SELECT id, ham_mudahale_metni, ham_sonuc_metni FROM ziyaret ORDER BY id")
     rows = cur.fetchall()
 
     for ziyaret_id, mudahale, sonuc in rows:
@@ -77,7 +77,7 @@ def run_medication_extraction(conn, surface_form_index, threshold=85):
             cur.execute(
                 """INSERT INTO ilac_kullanimi
                    (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, doz, siklik, eslesme_guveni)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
                 (
                     ziyaret_id,
                     med["ilac_adi_normalize"],

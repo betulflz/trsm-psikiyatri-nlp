@@ -12,11 +12,15 @@ def main():
     parser = argparse.ArgumentParser(
         description="Aynı klasördeki PDF kayıtlarını tek gerçek hastada birleştirir"
     )
-    parser.add_argument("db_path", help="Güncellenecek SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("source_roots", nargs="+", help="Hasta klasörlerini içeren kök dizinler")
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         report = consolidate_patients_by_source_folders(conn, args.source_roots)
     finally:

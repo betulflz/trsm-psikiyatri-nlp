@@ -13,6 +13,7 @@ from .demographic_extraction import (
     ensure_demographic_columns,
     is_valid_birth_date,
 )
+from .db import table_exists
 from .patient_consolidation import build_document_folder_map
 
 REQUIRED_HEADERS = ["dosya_adi", "dogum_tarihi", "cinsiyet"]
@@ -41,9 +42,7 @@ def _person_key(value):
 
 
 def _patient_lookup(conn):
-    has_trace_table = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hasta_dosya'"
-    ).fetchone()
+    has_trace_table = table_exists(conn, "hasta_dosya")
     trace_count = (
         conn.execute("SELECT COUNT(*) FROM hasta_dosya").fetchone()[0]
         if has_trace_table else 0
@@ -52,11 +51,12 @@ def _patient_lookup(conn):
     if trace_count:
         rows = conn.execute(
             """SELECT hd.hasta_id, hd.dosya_adi, hd.kaynak_klasor, h.dosya_adi
-               FROM hasta_dosya hd JOIN hasta h ON h.id = hd.hasta_id"""
+               FROM hasta_dosya hd JOIN hasta h ON h.id = hd.hasta_id
+               ORDER BY hd.id"""
         ).fetchall()
     else:
         rows = [(*row, None, row[1]) for row in conn.execute(
-            "SELECT id, dosya_adi FROM hasta"
+            "SELECT id, dosya_adi FROM hasta ORDER BY id"
         ).fetchall()]
     by_filename = {}
     by_stem = {}
@@ -262,9 +262,9 @@ def import_manual_demographics(conn, excel_path, source_roots=()):
 
         cur.execute(
             """UPDATE hasta
-               SET dogum_tarihi = ?, dogum_tarihi_kaynagi = ?,
-                   cinsiyet = ?, cinsiyet_kaynagi = ?
-               WHERE id = ?""",
+               SET dogum_tarihi = %s, dogum_tarihi_kaynagi = %s,
+                   cinsiyet = %s, cinsiyet_kaynagi = %s
+               WHERE id = %s""",
             (formatted_birth_date, birth_source, gender, gender_source, hasta_id),
         )
     conn.commit()
