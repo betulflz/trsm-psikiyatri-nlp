@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=1.26",
     "ollama>=0.3",
     "pandas>=2.0",
+    "pillow>=10.0",
     "psycopg[binary]>=3.2",
     "rapidfuzz>=3.5",
     "scikit-learn>=1.3",

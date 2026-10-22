@@ -19,6 +19,37 @@ Demo hesapları: `doktor` / `psikord-doktor`, `hemsire` / `psikord-hemsire`, `ad
 
 `npm test`
 
+## Fotoğraftan rapor okuma (yerel OCR)
+
+Yeni dosya → Rapor sayfaları bölümünde kameradan veya galeriden fotoğraf
+eklenince otomatik olarak `/api/m/rapor/ocr` adresine yüklenir. Sayfalar sırayla
+okunur; metin, hata ve yeniden okuma düğmesi her sayfanın altında görünür.
+Taslağı kaydet fotoğrafları ve OCR metinlerini cihazda saklar; kayıtlı taslakta
+“Metni gör” ile sonuç açılır. Hasta henüz sunucu veri tabanına kaydedilmez.
+
+Sunucuda `uv sync` ve Tesseract gerekir (macOS: `brew install tesseract`,
+Ubuntu: `sudo apt install tesseract-ocr`). Bu bilgisayarda Tesseract ve `eng`
+modeli zaten kurulu. Başlangıçta hafif İngilizce model kullanılır; Türkçe
+karakterlerde ve el yazısında doğruluk düşük olabilir. Qwen indirilmez.
+
+```bash
+TRSM_HOST=0.0.0.0 TRSM_OCR_LANG=eng uv run python demo_server.py
+```
+
+Türkçe dil dosyası kurulduğunda `TRSM_OCR_LANG=tur+eng` kullanılabilir
+(`tesseract --list-langs` ile kontrol edin). Bu ayarlar sunucu ortam değişkenidir;
+projenin `.env` dosyasından otomatik okunmaz. `TRSM_TESSERACT_CMD` ile çalıştırılabilir
+dosyanın yolu değiştirilebilir. `TRSM_OCR_BACKEND` varsayılanı `tesseract`tır;
+gelecekte Qwen veya başka bir model için `trsm/mobile_api/ocr.py` içindeki
+`read_report` motor seçimine yeni sağlayıcı ekleyin. Mobilin beklediği yanıt
+`{metin, motor, dil}` olduğundan mobil yükleme akışı değişmez.
+
+Sunucu en fazla 12 MB / 25 megapiksel görsel kabul eder, uzun kenarı 2000 piksele
+indirir ve Tesseract'ı tek iş parçacığıyla en fazla 45 saniye çalıştırır.
+Her sunucu sürecinde aynı anda tek OCR çalışır; yoğunken tekrar deneme mesajı
+döner. Görseller geçici dizinde işlenir ve işlem bitince silinir; bulut servisine
+gönderilmez. Telefonun eriştiği Flask sunucusunun yeniden başlatılması gerekir.
+
 ## Sorun giderme
 
 - **"Sunucuya ulaşılamıyor"**: Telefon ve bilgisayar aynı Wi-Fi'da mı? Sunucu
