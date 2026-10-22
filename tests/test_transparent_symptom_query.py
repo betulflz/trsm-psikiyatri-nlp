@@ -1,6 +1,7 @@
 import numpy as np
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.transparent_symptom_query import (
     analyze_transparent_symptom_query,
     classify_symptom_clauses,
@@ -38,16 +39,16 @@ def _insert_visit(conn, filename, drug):
     cur.execute(
         """INSERT INTO hasta
            (dosya_adi, dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet, cinsiyet_kaynagi)
-           VALUES (?, '01.01.1999', 'manual_review', 'Erkek', 'manual_review')""",
+           VALUES (%s, '01.01.1999', 'manual_review', 'Erkek', 'manual_review') RETURNING id""",
         (filename,),
     )
-    patient_id = cur.lastrowid
-    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-02-01', 1)", (patient_id,))
-    visit_id = cur.lastrowid
+    patient_id = cur.fetchone()[0]
+    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-02-01', 1) RETURNING id", (patient_id,))
+    visit_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni)
-           VALUES (?, ?, ?, 100)""",
+           VALUES (%s, %s, %s, 100)""",
         (visit_id, drug, drug),
     )
     conn.commit()
@@ -100,7 +101,7 @@ def test_explicit_negation_withholds_the_negated_theme_from_automatic_labelling(
 
 
 def test_transparent_query_returns_theme_and_combined_aggregate_without_historical_text():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     sleep_visit = _insert_visit(conn, "sleep.pdf", "Akineton")
     anxiety_visit = _insert_visit(conn, "anxiety.pdf", "Depakin")
@@ -129,7 +130,7 @@ def test_transparent_query_returns_theme_and_combined_aggregate_without_historic
 
 
 def test_unclassified_clause_is_still_included_in_combined_semantic_evidence():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     visit_id = _insert_visit(conn, "unclassified.pdf", "Akineton")
 
@@ -148,7 +149,7 @@ def test_unclassified_clause_is_still_included_in_combined_semantic_evidence():
 
 
 def test_high_risk_expression_does_not_produce_medication_pattern():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     result = analyze_transparent_symptom_query(
         conn, "Kendime zarar vermek istiyorum", 25, "Erkek", FakeModel(),

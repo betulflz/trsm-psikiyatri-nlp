@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.patient_consolidation import consolidate_patients_by_source_folders
 
 
@@ -9,14 +10,14 @@ def _insert_document_patient(conn, filename, birth_date, gender, visit_text):
     cur.execute(
         """INSERT INTO hasta
            (dosya_adi, dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet, cinsiyet_kaynagi)
-           VALUES (?, ?, 'manual_review', ?, 'manual_review')""",
+           VALUES (%s, %s, 'manual_review', %s, 'manual_review') RETURNING id""",
         (filename, birth_date, gender),
     )
-    patient_id = cur.lastrowid
+    patient_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret
            (hasta_id, tarih, sayfa_no, ham_mudahale_metni)
-           VALUES (?, '2024-01-01', 1, ?)""",
+           VALUES (%s, '2024-01-01', 1, %s)""",
         (patient_id, visit_text),
     )
     conn.commit()
@@ -30,7 +31,7 @@ def _create_pdf_path(root, folder, filename):
 
 
 def test_consolidation_merges_documents_preserves_visits_and_traces(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     first_id = _insert_document_patient(conn, "Dilan Konyar 1.pdf", "15.07.1983", "Kadın", "ilk")
     _insert_document_patient(conn, "Dilan Konyar 2.pdf", "15.07.1983", "Kadın", "ikinci")
@@ -56,7 +57,7 @@ def test_consolidation_merges_documents_preserves_visits_and_traces(tmp_path):
 
 
 def test_consolidation_aborts_before_mutating_when_a_document_is_unmapped(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_document_patient(conn, "Eksik.pdf", "15.07.1983", "Kadın", "not")
 

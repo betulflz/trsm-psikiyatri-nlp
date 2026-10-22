@@ -25,3 +25,16 @@ data/tedavi_gecis_istatistikleri.json
 data/demographic_ocr_review.csv
 data/demographic_manual_overrides.csv
 data/manual_demographic_import_review.csv
+.superpowers/
+data/mobile_secret.key
+
+# Mobil uygulama simgeleri repoda tutulur
+!mobile/assets/*.png
+
+# PostgreSQL yerel sifreleri
+.env
+yedekler/
+*.dump
+
+# Deneme çıktıları hasta verisi içerir
+spikes/**/cikti/

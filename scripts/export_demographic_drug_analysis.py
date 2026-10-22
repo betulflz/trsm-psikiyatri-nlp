@@ -69,7 +69,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Doğrulanmış yaş/cinsiyet verisine göre tanımlayıcı ilaç tabloları üretir"
     )
-    parser.add_argument("db_path", help="Mevcut SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument(
         "--output-dir",
         default="docs/analysis_reports",
@@ -79,7 +83,7 @@ def main():
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         coverage = demographic_coverage_summary(conn)
         age_df = demographic_drug_distribution(conn, "yas_grubu")

@@ -12,16 +12,20 @@ def main():
         description="TRSM veri temizleme ve varlık çıkarımı pipeline'ı"
     )
     parser.add_argument("excel_path", help="Ham OCR Excel dosyasının yolu")
-    parser.add_argument("db_path", help="Oluşturulacak SQLite veritabanı dosyasının yolu")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Belirtilen veritabanı dosyası zaten mevcutsa üzerine yaz",
+        help="Veritabanı zaten doluysa tüm tabloları silip yeniden oluştur",
     )
     args = parser.parse_args()
 
-    run_pipeline(args.excel_path, args.db_path, overwrite=args.overwrite)
-    print(f"Pipeline tamamlandı: {args.db_path}")
+    run_pipeline(args.excel_path, args.database_url, overwrite=args.overwrite)
+    print("Pipeline tamamlandı.")
 
 
 if __name__ == "__main__":

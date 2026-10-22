@@ -15,7 +15,6 @@ from trsm.transparent_symptom_query import (
     build_category_seed_embeddings,
 )
 
-DB_PATH = "trsm.db"
 INDEX_PATH = "data/symptom_index.npz"
 MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
@@ -25,24 +24,26 @@ def load_resources():
     model = SentenceTransformer(MODEL_NAME)
     embeddings, ziyaret_ids, phrases = load_symptom_index(INDEX_PATH)
     seed_embeddings = build_category_seed_embeddings(model)
-    conn = get_connection(DB_PATH, check_same_thread=False)
+    conn = get_connection(autocommit=True)
     return model, embeddings, ziyaret_ids, phrases, seed_embeddings, conn
 
 
 st.title("TRSM İlaç Öneri Asistanı")
 st.warning(TIBBI_UYARI)
 
-if not Path(DB_PATH).exists():
+try:
+    get_connection().close()
+except Exception as exc:
     st.error(
-        f"Veritabanı dosyası bulunamadı: '{DB_PATH}'. Önce veri işleme pipeline'ını "
-        "çalıştırın (örn. `python3 scripts/run_pipeline.py <excel_yolu> trsm.db`)."
+        f"PostgreSQL veritabanına bağlanılamadı: {exc}. `docker compose up -d` ile "
+        "veritabanını başlatın ve .env dosyasındaki DATABASE_URL değerini kontrol edin."
     )
     st.stop()
 
 if not Path(INDEX_PATH).exists():
     st.error(
         f"Semptom indeks dosyası bulunamadı: '{INDEX_PATH}'. Önce indeks dosyasını "
-        f"oluşturun: `python3 scripts/build_symptom_index.py {DB_PATH} {INDEX_PATH}`."
+        f"oluşturun: `python3 scripts/build_symptom_index.py {INDEX_PATH}`."
     )
     st.stop()
 

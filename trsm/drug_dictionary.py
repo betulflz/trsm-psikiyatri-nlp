@@ -21,14 +21,14 @@ def load_drug_dictionary_into_db(conn, drug_dictionary):
     cur = conn.cursor()
     for resmi_ad, variations in drug_dictionary.items():
         cur.execute(
-            "INSERT OR IGNORE INTO ilac_sozluk (resmi_ad) VALUES (?)", (resmi_ad,)
+            "INSERT INTO ilac_sozluk (resmi_ad) VALUES (%s) ON CONFLICT DO NOTHING", (resmi_ad,)
         )
-        cur.execute("SELECT id FROM ilac_sozluk WHERE resmi_ad = ?", (resmi_ad,))
+        cur.execute("SELECT id FROM ilac_sozluk WHERE resmi_ad = %s", (resmi_ad,))
         ilac_sozluk_id = cur.fetchone()[0]
         for varyasyon in variations:
             cur.execute(
                 """INSERT INTO ilac_varyasyon (ilac_sozluk_id, varyasyon)
-                   VALUES (?, ?)""",
+                   VALUES (%s, %s)""",
                 (ilac_sozluk_id, varyasyon),
             )
     conn.commit()

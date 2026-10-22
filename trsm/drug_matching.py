@@ -46,7 +46,8 @@ def build_surface_form_index_from_db(conn):
     """
     rows = conn.execute(
         """SELECT s.resmi_ad, v.varyasyon
-           FROM ilac_sozluk s JOIN ilac_varyasyon v ON v.ilac_sozluk_id = s.id"""
+           FROM ilac_sozluk s JOIN ilac_varyasyon v ON v.ilac_sozluk_id = s.id
+           ORDER BY v.id"""
     ).fetchall()
     return {variation: official for official, variation in rows}
 

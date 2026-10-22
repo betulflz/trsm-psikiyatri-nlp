@@ -12,7 +12,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from trsm.db import get_connection
+from trsm.db import database_url, get_connection
 from trsm.model_loader import load_local_minilm
 from trsm.ollama_support import qwen_status
 from trsm.recommendation import (
@@ -31,10 +31,13 @@ from trsm.transparent_symptom_query import (
 )
 from trsm.treatment_response_analysis import build_patient_transition_analysis
 from trsm.treatment_timeline import build_patient_drug_trend, list_treatment_change_candidates
+from trsm.mobile_api import create_mobile_blueprint
+from trsm.mobile_api.auth import load_or_create_secret
+from trsm.mobile_api.network_guard import restrict_legacy_to_loopback
 from trsm.runtime_paths import runtime_data_paths
 
 PATHS = runtime_data_paths()
-DB_PATH = PATHS["db"]
+DATABASE_URL = database_url()
 INDEX_PATH = PATHS["index"]
 TRANSITION_STATS_PATH = PATHS["transition_stats"]
 GUVEN_ESIGI = 90
@@ -42,6 +45,16 @@ MIN_SIMILARITY = 0.75
 SERVER_PORT = int(os.getenv("TRSM_PORT", "8765"))
 
 app = Flask(__name__, static_folder=None)
+restrict_legacy_to_loopback(app)  # TRSM_HOST=0.0.0.0 iken eski kimliksiz uç noktalar ağa kapalı kalır
+app.register_blueprint(create_mobile_blueprint(
+    DATABASE_URL,
+    load_or_create_secret(PATHS["data_dir"] / "mobile_secret.key", os.environ),
+    confidence_threshold=GUVEN_ESIGI,
+    status_extra=lambda: {
+        "semptom_indeksi": INDEX_PATH.exists(),
+        "ollama": qwen_status("qwen2.5:3b")["kullanilabilir"],
+    },
+))
 
 print("Model yükleniyor...")
 model = load_local_minilm()
@@ -55,7 +68,7 @@ _treatment_candidate_cache = None
 
 
 def get_connection_():
-    return get_connection(DB_PATH)
+    return get_connection(DATABASE_URL)
 
 
 def treatment_change_candidates():
@@ -149,16 +162,16 @@ def api_trend():
         cur = conn.cursor()
         cur.execute("""SELECT ik.ilac_adi_normalize, COUNT(*) c FROM ilac_kullanimi ik
             JOIN ziyaret z ON z.id=ik.ziyaret_id
-            WHERE substr(z.tarih,1,4) BETWEEN '2021' AND '2025' AND ik.eslesme_guveni>=?
-            GROUP BY ik.ilac_adi_normalize ORDER BY c DESC LIMIT 6""", (GUVEN_ESIGI,))
+            WHERE substr(z.tarih,1,4) BETWEEN '2021' AND '2025' AND ik.eslesme_guveni>=%s
+            GROUP BY ik.ilac_adi_normalize ORDER BY c DESC, ik.ilac_adi_normalize ASC LIMIT 6""", (GUVEN_ESIGI,))
         top6 = [r[0] for r in cur.fetchall()]
         if not top6:
             return jsonify({"ilaclar": [], "veri": {}, "yillar": []})
 
-        placeholders = ",".join("?" * len(top6))
+        placeholders = ",".join(["%s"] * len(top6))
         cur.execute(f"""SELECT substr(z.tarih,1,4) yil, ik.ilac_adi_normalize, COUNT(*) c FROM ilac_kullanimi ik
             JOIN ziyaret z ON z.id=ik.ziyaret_id
-            WHERE substr(z.tarih,1,4) BETWEEN '2021' AND '2025' AND ik.eslesme_guveni>=?
+            WHERE substr(z.tarih,1,4) BETWEEN '2021' AND '2025' AND ik.eslesme_guveni>=%s
             AND ik.ilac_adi_normalize IN ({placeholders})
             GROUP BY yil, ik.ilac_adi_normalize""", [GUVEN_ESIGI] + top6)
         veri = {}
@@ -288,4 +301,4 @@ def api_ikinci_gorus():
 
 if __name__ == "__main__":
     compute_kategoriler()  # başlangıçta bir kez hesapla, ilk istekte gecikme olmasın
-    app.run(host="127.0.0.1", port=SERVER_PORT, debug=False)
+    app.run(host=os.getenv("TRSM_HOST", "127.0.0.1"), port=SERVER_PORT, debug=False)

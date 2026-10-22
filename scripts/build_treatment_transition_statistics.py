@@ -22,7 +22,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="İlaç değişimleri sonrası kayıtlardaki geniş semptom tema değişimlerinin gözlemsel özetini üretir"
     )
-    parser.add_argument("db_path", help="Dolu SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("output_json", help="Toplulaştırılmış çıktı JSON dosyası")
     parser.add_argument("--max-follow-up-days", type=int, default=90, help="Sonraki semptom kaydı için maksimum gün")
     parser.add_argument("--max-patients", type=int, help="Hızlı deneme için en fazla hasta sayısı")
@@ -30,7 +34,7 @@ def main():
 
     model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     seed_embeddings = build_category_seed_embeddings(model)
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         candidates = list_treatment_change_candidates(conn)
         patient_ids = [row["hasta_id"] for row in candidates]

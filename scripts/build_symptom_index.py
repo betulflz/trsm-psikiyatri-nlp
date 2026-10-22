@@ -10,13 +10,17 @@ from trsm.symptom_similarity import build_symptom_index
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Semptom benzerlik indeksini (embedding) trsm.db'den inşa eder"
+        description="Semptom benzerlik indeksini (embedding) PostgreSQL veritabanından inşa eder"
     )
-    parser.add_argument("db_path", help="Dolu trsm.db dosyasının yolu")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("index_path", help="Oluşturulacak .npz indeks dosyasının yolu")
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         result = build_symptom_index(conn, args.index_path)
     finally:

@@ -1,6 +1,7 @@
 import pytest
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.profiled_recommendation import compute_profiled_recommendation, normalize_profile
 
 
@@ -9,16 +10,16 @@ def _insert_historical_visit(conn, filename, birth_date, gender, visit_date, dru
     cur.execute(
         """INSERT INTO hasta
            (dosya_adi, dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet, cinsiyet_kaynagi)
-           VALUES (?, ?, 'manual_review', ?, 'manual_review')""",
+           VALUES (%s, %s, 'manual_review', %s, 'manual_review') RETURNING id""",
         (filename, birth_date, gender),
     )
-    patient_id = cur.lastrowid
-    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, ?, 1)", (patient_id, visit_date))
-    visit_id = cur.lastrowid
+    patient_id = cur.fetchone()[0]
+    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, %s, 1) RETURNING id", (patient_id, visit_date))
+    visit_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni)
-           VALUES (?, ?, ?, 100)""",
+           VALUES (%s, %s, %s, 100)""",
         (visit_id, drug, drug),
     )
     conn.commit()
@@ -26,7 +27,7 @@ def _insert_historical_visit(conn, filename, birth_date, gender, visit_date, dru
 
 
 def test_profiled_recommendation_uses_same_gender_and_historical_age_group_only():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     matching = _insert_historical_visit(conn, "matching.pdf", "01.01.1999", "Erkek", "2024-02-01", "Akineton")
     wrong_gender = _insert_historical_visit(conn, "female.pdf", "01.01.1999", "Kadın", "2024-02-01", "Depakin")

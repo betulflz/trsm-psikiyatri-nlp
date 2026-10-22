@@ -1,9 +1,9 @@
-import sqlite3
-
 import pandas as pd
 import pytest
 
-from trsm.pipeline import run_pipeline
+from tests.pg import fresh_database_url
+from trsm.db import get_connection
+from trsm.pipeline import DatabaseNotEmptyError, run_pipeline
 
 
 class FakeModel:
@@ -25,10 +25,10 @@ def test_run_pipeline_end_to_end(tmp_path):
     })
     df.to_excel(excel_path, index=False)
 
-    db_path = tmp_path / "trsm.db"
-    run_pipeline(str(excel_path), str(db_path), symptom_model=FakeModel())
+    db_url = fresh_database_url()
+    run_pipeline(str(excel_path), db_url, symptom_model=FakeModel())
 
-    conn = sqlite3.connect(str(db_path))
+    conn = get_connection(db_url)
     cur = conn.cursor()
 
     cur.execute("SELECT COUNT(*) FROM hasta")
@@ -57,11 +57,11 @@ def test_run_pipeline_rerun_without_overwrite_raises(tmp_path):
     })
     df.to_excel(excel_path, index=False)
 
-    db_path = tmp_path / "trsm.db"
-    run_pipeline(str(excel_path), str(db_path), symptom_model=FakeModel())
+    db_url = fresh_database_url()
+    run_pipeline(str(excel_path), db_url, symptom_model=FakeModel())
 
-    with pytest.raises(FileExistsError):
-        run_pipeline(str(excel_path), str(db_path), symptom_model=FakeModel())
+    with pytest.raises(DatabaseNotEmptyError):
+        run_pipeline(str(excel_path), db_url, symptom_model=FakeModel())
 
 
 def test_run_pipeline_rerun_with_overwrite_does_not_duplicate(tmp_path):
@@ -75,13 +75,13 @@ def test_run_pipeline_rerun_with_overwrite_does_not_duplicate(tmp_path):
     })
     df.to_excel(excel_path, index=False)
 
-    db_path = tmp_path / "trsm.db"
-    run_pipeline(str(excel_path), str(db_path), symptom_model=FakeModel())
+    db_url = fresh_database_url()
+    run_pipeline(str(excel_path), db_url, symptom_model=FakeModel())
     run_pipeline(
-        str(excel_path), str(db_path), symptom_model=FakeModel(), overwrite=True
+        str(excel_path), db_url, symptom_model=FakeModel(), overwrite=True
     )
 
-    conn = sqlite3.connect(str(db_path))
+    conn = get_connection(db_url)
     cur = conn.cursor()
 
     cur.execute("SELECT COUNT(*) FROM hasta")

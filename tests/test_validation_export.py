@@ -1,23 +1,24 @@
 import csv
 
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.validation_export import export_validation_sample, export_validation_sample_with_predictions
 
 
 def _insert_hasta_with_ziyaret(conn, dosya):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (dosya,))
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (dosya,))
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, 'not', 'sonuc')""",
+           VALUES (%s, '2024-01-01', 1, 'not', 'sonuc')""",
         (hasta_id,),
     )
     conn.commit()
 
 
 def test_export_validation_sample_writes_csv_with_header_and_rows(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_hasta_with_ziyaret(conn, "a.pdf")
     _insert_hasta_with_ziyaret(conn, "b.pdf")
@@ -36,14 +37,14 @@ def test_export_validation_sample_writes_csv_with_header_and_rows(tmp_path):
 
 
 def test_export_validation_sample_sanitizes_formula_like_fields(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')")
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id")
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, '=1+1', 'normal metin')""",
+           VALUES (%s, '2024-01-01', 1, '=1+1', 'normal metin')""",
         (hasta_id,),
     )
     conn.commit()
@@ -61,7 +62,7 @@ def test_export_validation_sample_sanitizes_formula_like_fields(tmp_path):
 
 
 def test_export_validation_sample_respects_sample_size(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     for i in range(5):
         _insert_hasta_with_ziyaret(conn, f"hasta{i}.pdf")
@@ -76,25 +77,25 @@ def test_export_validation_sample_respects_sample_size(tmp_path):
 
 
 def test_export_validation_sample_with_predictions_includes_system_findings(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')")
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id")
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, 'Stilizan 5mg tb -> 3x1. Uyku bozuk.', NULL)""",
+           VALUES (%s, '2024-01-01', 1, 'Stilizan 5mg tb -> 3x1. Uyku bozuk.', NULL) RETURNING id""",
         (hasta_id,),
     )
-    ziyaret_id = cur.lastrowid
+    ziyaret_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, doz, siklik, eslesme_guveni)
-           VALUES (?, 'Stilizan', 'Stilizan', '5mg', '3x1', 100)""",
+           VALUES (%s, 'Stilizan', 'Stilizan', '5mg', '3x1', 100)""",
         (ziyaret_id,),
     )
     cur.execute(
-        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, 'Uyku bozuk', 'cluster_0')",
+        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, 'Uyku bozuk', 'cluster_0')",
         (ziyaret_id,),
     )
     conn.commit()
@@ -118,7 +119,7 @@ def test_export_validation_sample_with_predictions_includes_system_findings(tmp_
 
 
 def test_export_validation_sample_with_predictions_blank_when_no_findings(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_hasta_with_ziyaret(conn, "a.pdf")
 

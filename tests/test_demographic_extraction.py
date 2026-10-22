@@ -1,4 +1,5 @@
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.demographic_extraction import (
     calculate_age_at_visit,
     extract_birth_date,
@@ -52,24 +53,24 @@ def test_extract_gender_field_absent():
 
 def _insert_hasta(conn, dosya_adi="hasta.pdf"):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (dosya_adi,))
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (dosya_adi,))
     conn.commit()
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def _insert_ziyaret(conn, hasta_id, sayfa_no, mudahale, sonuc):
     cur = conn.cursor()
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, ?, ?, ?)""",
+           VALUES (%s, %s, %s, %s) RETURNING id""",
         (hasta_id, sayfa_no, mudahale, sonuc),
     )
     conn.commit()
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def test_run_demographic_extraction_fills_clean_page():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 9, "RH.FR.002", "Yayın Tarihi")
@@ -80,18 +81,18 @@ def test_run_demographic_extraction_fills_clean_page():
     run_demographic_extraction(conn)
 
     cur = conn.cursor()
-    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = ?", (hasta_id,))
+    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = %s", (hasta_id,))
     assert cur.fetchone() == ("Erkek", "15.07.1983")
 
     cur.execute(
-        "SELECT cinsiyet_kaynagi, dogum_tarihi_kaynagi FROM hasta WHERE id = ?",
+        "SELECT cinsiyet_kaynagi, dogum_tarihi_kaynagi FROM hasta WHERE id = %s",
         (hasta_id,),
     )
     assert cur.fetchone() == ("RH.FR.002_checkbox", "RH.FR.002_ocr_ve_yas_kurali")
 
 
 def test_run_demographic_extraction_leaves_hasta_without_form_untouched():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 3, "Bireysel görüşme yapıldı", None)
@@ -99,12 +100,12 @@ def test_run_demographic_extraction_leaves_hasta_without_form_untouched():
     run_demographic_extraction(conn)
 
     cur = conn.cursor()
-    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = ?", (hasta_id,))
+    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = %s", (hasta_id,))
     assert cur.fetchone() == (None, None)
 
 
 def test_run_demographic_extraction_leaves_conflicting_form_values_unset():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 5, "RH.FR.002", "Yayın Tarihi")
@@ -115,12 +116,12 @@ def test_run_demographic_extraction_leaves_conflicting_form_values_unset():
     run_demographic_extraction(conn)
 
     cur = conn.cursor()
-    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = ?", (hasta_id,))
+    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = %s", (hasta_id,))
     assert cur.fetchone() == (None, None)
 
 
 def test_run_demographic_extraction_ambiguous_checkbox_leaves_gender_none():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 15, "RH.FR.002", "Yayın Tarihi")
@@ -130,34 +131,34 @@ def test_run_demographic_extraction_ambiguous_checkbox_leaves_gender_none():
     run_demographic_extraction(conn)
 
     cur = conn.cursor()
-    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = ?", (hasta_id,))
+    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = %s", (hasta_id,))
     assert cur.fetchone() == (None, None)
 
 
 def test_run_demographic_extraction_rejects_date_for_non_adult_at_earliest_visit():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 4, "RH.FR.002", "Yayın Tarihi")
     _insert_ziyaret(conn, hasta_id, 4, "15.07.2008", "Cinsiyet: ☑ Kadın ☐ Erkek")
-    conn.execute("UPDATE ziyaret SET tarih = '2025-01-01' WHERE hasta_id = ?", (hasta_id,))
+    conn.execute("UPDATE ziyaret SET tarih = '2025-01-01' WHERE hasta_id = %s", (hasta_id,))
     conn.commit()
 
     run_demographic_extraction(conn)
 
     cur = conn.cursor()
-    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = ?", (hasta_id,))
+    cur.execute("SELECT cinsiyet, dogum_tarihi FROM hasta WHERE id = %s", (hasta_id,))
     assert cur.fetchone() == ("Kadın", None)
 
 
 def test_run_demographic_extraction_preserves_manual_review_values():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_hasta(conn)
     _insert_ziyaret(conn, hasta_id, 4, "RH.FR.002", "15.07.1983 Cinsiyet: ☐ Kadın ☑ Erkek")
     conn.execute(
         """UPDATE hasta SET cinsiyet='Kadın', cinsiyet_kaynagi='manual_review',
-           dogum_tarihi='01.01.1980', dogum_tarihi_kaynagi='manual_review' WHERE id=?""",
+           dogum_tarihi='01.01.1980', dogum_tarihi_kaynagi='manual_review' WHERE id=%s""",
         (hasta_id,),
     )
     conn.commit()
@@ -166,7 +167,7 @@ def test_run_demographic_extraction_preserves_manual_review_values():
 
     row = conn.execute(
         """SELECT cinsiyet, dogum_tarihi, cinsiyet_kaynagi, dogum_tarihi_kaynagi
-           FROM hasta WHERE id=?""",
+           FROM hasta WHERE id=%s""",
         (hasta_id,),
     ).fetchone()
     assert row == ("Kadın", "01.01.1980", "manual_review", "manual_review")

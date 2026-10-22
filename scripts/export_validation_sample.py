@@ -12,7 +12,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="TRSM manuel doğrulama örneklemini CSV olarak dışa aktarır"
     )
-    parser.add_argument("db_path", help="Mevcut SQLite veritabanı dosyasının yolu")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("output_csv", help="Oluşturulacak CSV dosyasının yolu")
     parser.add_argument(
         "--sample-size", type=int, default=30, help="Örneklem büyüklüğü (varsayılan: 30)"
@@ -22,7 +26,7 @@ def main():
     )
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         export_validation_sample(
             conn, args.output_csv, sample_size=args.sample_size, seed=args.seed

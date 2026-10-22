@@ -4,7 +4,7 @@ from .symptom_extraction import is_probable_symptom, split_into_phrases
 
 def run_symptom_extraction(conn, min_cluster_size=5, model=None, surface_form_index=None):
     cur = conn.cursor()
-    cur.execute("SELECT id, ham_mudahale_metni, ham_sonuc_metni FROM ziyaret")
+    cur.execute("SELECT id, ham_mudahale_metni, ham_sonuc_metni FROM ziyaret ORDER BY id")
     rows = cur.fetchall()
 
     ziyaret_ids = []
@@ -29,7 +29,7 @@ def run_symptom_extraction(conn, min_cluster_size=5, model=None, surface_form_in
         label = label_by_phrase[phrase]
         kategori = "kategorisiz" if label == -1 else f"cluster_{label}"
         cur.execute(
-            "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, ?)",
+            "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, %s, %s)",
             (ziyaret_id, phrase, kategori),
         )
     conn.commit()

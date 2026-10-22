@@ -1,4 +1,5 @@
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.treatment_timeline import build_patient_treatment_timeline, list_treatment_change_candidates
 
 
@@ -14,26 +15,26 @@ class ZeroModel:
 
 def _visit_with_medications(conn, patient_id, day, medicines):
     cur = conn.cursor()
-    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, ?, 1)", (patient_id, day))
-    visit_id = cur.lastrowid
+    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, %s, 1) RETURNING id", (patient_id, day))
+    visit_id = cur.fetchone()[0]
     for medicine, dose, frequency in medicines:
         cur.execute(
             """INSERT INTO ilac_kullanimi
                (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, doz, siklik, eslesme_guveni)
-               VALUES (?, ?, ?, ?, ?, 100)""",
+               VALUES (%s, %s, %s, %s, %s, 100)""",
             (visit_id, medicine, medicine, dose, frequency),
         )
     cur.execute(
-        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, 'uyku sorunu', 'cluster_1')",
+        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, 'uyku sorunu', 'cluster_1')",
         (visit_id,),
     )
     conn.commit()
 
 
 def test_timeline_merges_same_day_visits_and_describes_observed_changes_cautiously():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
     _visit_with_medications(conn, patient_id, "2024-01-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, patient_id, "2024-01-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, patient_id, "2024-02-01", [("Akineton", "4 mg", "1x1"), ("Risperdal", "1 mg", "1x1")])
@@ -49,11 +50,11 @@ def test_timeline_merges_same_day_visits_and_describes_observed_changes_cautious
 
 
 def test_timeline_does_not_treat_missing_medication_visit_as_a_stop():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
     _visit_with_medications(conn, patient_id, "2024-01-01", [("Akineton", "2 mg", "1x1")])
-    conn.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-01-15', 1)", (patient_id,))
+    conn.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-01-15', 1)", (patient_id,))
     conn.commit()
     _visit_with_medications(conn, patient_id, "2024-02-01", [("Akineton", "2 mg", "1x1")])
 
@@ -63,10 +64,10 @@ def test_timeline_does_not_treat_missing_medication_visit_as_a_stop():
 
 
 def test_change_candidate_list_contains_only_patients_with_observed_list_change():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    changed = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('changed.pdf')").lastrowid
-    stable = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('stable.pdf')").lastrowid
+    changed = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('changed.pdf') RETURNING id").fetchone()[0]
+    stable = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('stable.pdf') RETURNING id").fetchone()[0]
     _visit_with_medications(conn, changed, "2024-01-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, changed, "2024-02-01", [("Risperdal", "1 mg", "1x1")])
     _visit_with_medications(conn, stable, "2024-01-01", [("Akineton", "2 mg", "1x1")])
@@ -78,9 +79,9 @@ def test_change_candidate_list_contains_only_patients_with_observed_list_change(
 
 
 def test_timeline_can_include_automatic_theme_presence_without_claiming_outcome():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
     _visit_with_medications(conn, patient_id, "2024-01-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, patient_id, "2024-02-01", [("Risperdal", "1 mg", "1x1")])
     conn.execute("UPDATE semptom_kaydi SET ifade_ham = 'geceleri uyuyamıyor'")
@@ -96,9 +97,9 @@ def test_timeline_can_include_automatic_theme_presence_without_claiming_outcome(
 def test_patient_drug_trend_returns_window_points_yearly_counts_and_change_dates():
     from trsm.treatment_timeline import build_patient_drug_trend
 
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
     _visit_with_medications(conn, patient_id, "2019-05-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, patient_id, "2021-03-01", [("Akineton", "2 mg", "1x1")])
     _visit_with_medications(conn, patient_id, "2021-03-01", [("Akineton", "2 mg", "1x1")])

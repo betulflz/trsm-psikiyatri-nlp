@@ -1,6 +1,7 @@
 import csv
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.demographic_review import (
     apply_manual_demographic_overrides,
     build_demographic_review_rows,
@@ -11,11 +12,11 @@ from trsm.demographic_review import (
 
 def _insert_form_patient(conn, birth_date="15.07.1983", gender="☑ Kadın ☐ Erkek"):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('hasta.pdf')")
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES ('hasta.pdf') RETURNING id")
+    hasta_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ziyaret (hasta_id, tarih, sayfa_no, ham_mudahale_metni, ham_sonuc_metni)
-           VALUES (?, '2024-01-01', 1, 'RH.FR.002', ?)""",
+           VALUES (%s, '2024-01-01', 1, 'RH.FR.002', %s)""",
         (hasta_id, f"{birth_date} Cinsiyet: {gender}"),
     )
     conn.commit()
@@ -23,7 +24,7 @@ def _insert_form_patient(conn, birth_date="15.07.1983", gender="☑ Kadın ☐ E
 
 
 def test_build_review_rows_includes_ambiguous_ocr_values():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_form_patient(conn, birth_date="28.03.7989", gender="☐ Kadın ☐ Erkek")
 
@@ -35,7 +36,7 @@ def test_build_review_rows_includes_ambiguous_ocr_values():
 
 
 def test_write_review_csv_uses_semicolon_delimiter(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_form_patient(conn, birth_date="28.03.7989")
 
@@ -49,7 +50,7 @@ def test_write_review_csv_uses_semicolon_delimiter(tmp_path):
 
 
 def test_apply_manual_override_records_manual_source(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     hasta_id = _insert_form_patient(conn, birth_date="28.03.7989")
     override = tmp_path / "overrides.csv"
@@ -59,14 +60,14 @@ def test_apply_manual_override_records_manual_source(tmp_path):
 
     row = conn.execute(
         """SELECT dogum_tarihi, cinsiyet, dogum_tarihi_kaynagi, cinsiyet_kaynagi
-           FROM hasta WHERE id = ?""",
+           FROM hasta WHERE id = %s""",
         (hasta_id,),
     ).fetchone()
     assert row == ("15.07.1983", "Kadın", "manual_review", "manual_review")
 
 
 def test_override_sheet_has_blank_editable_demographic_columns(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_form_patient(conn, birth_date="28.03.7989")
 

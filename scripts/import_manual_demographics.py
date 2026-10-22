@@ -16,7 +16,11 @@ def main():
         description="Manuel doğrulanmış doğum tarihi/cinsiyet Excel'ini içe aktarır"
     )
     parser.add_argument("excel_path", help="dosya_adi, dogum_tarihi, cinsiyet başlıklı Excel")
-    parser.add_argument("db_path", help="Güncellenecek SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument(
         "--review-csv",
         default="data/manual_demographic_import_review.csv",
@@ -32,7 +36,7 @@ def main():
 
     review_path = Path(args.review_csv)
     review_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         report = import_manual_demographics(
             conn, args.excel_path, source_roots=args.source_root

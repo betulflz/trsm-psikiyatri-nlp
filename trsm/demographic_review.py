@@ -135,7 +135,7 @@ def apply_manual_demographic_overrides(conn, path):
             dosya_adi = (row.get("dosya_adi") or "").strip()
             if not dosya_adi:
                 continue
-            cur.execute("SELECT id FROM hasta WHERE dosya_adi = ?", (dosya_adi,))
+            cur.execute("SELECT id FROM hasta WHERE dosya_adi = %s", (dosya_adi,))
             found = cur.fetchone()
             if found is None:
                 raise ValueError(f"Düzeltme CSV'sindeki hasta bulunamadı: {dosya_adi}")
@@ -148,12 +148,12 @@ def apply_manual_demographic_overrides(conn, path):
                 raise ValueError(f"Geçersiz cinsiyet düzeltmesi: {dosya_adi}")
             if birth_date:
                 cur.execute(
-                    "UPDATE hasta SET dogum_tarihi=?, dogum_tarihi_kaynagi='manual_review' WHERE id=?",
+                    "UPDATE hasta SET dogum_tarihi=%s, dogum_tarihi_kaynagi='manual_review' WHERE id=%s",
                     (birth_date, hasta_id),
                 )
             if gender:
                 cur.execute(
-                    "UPDATE hasta SET cinsiyet=?, cinsiyet_kaynagi='manual_review' WHERE id=?",
+                    "UPDATE hasta SET cinsiyet=%s, cinsiyet_kaynagi='manual_review' WHERE id=%s",
                     (gender, hasta_id),
                 )
             if birth_date or gender:
