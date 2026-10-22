@@ -76,12 +76,8 @@ def extract_gender(text):
 
 def ensure_demographic_columns(conn):
     """Migrate pre-demographic local databases without rebuilding them."""
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(hasta)")
-    columns = {row[1] for row in cur.fetchall()}
     for column in ("cinsiyet_kaynagi", "dogum_tarihi_kaynagi"):
-        if column not in columns:
-            cur.execute(f"ALTER TABLE hasta ADD COLUMN {column} TEXT")
+        conn.execute(f"ALTER TABLE hasta ADD COLUMN IF NOT EXISTS {column} TEXT")
     conn.commit()
 
 
@@ -89,8 +85,8 @@ def _form_pages_for_patient(conn, hasta_id):
     cur = conn.cursor()
     cur.execute(
         """SELECT DISTINCT sayfa_no FROM ziyaret
-           WHERE hasta_id = ?
-             AND (ham_mudahale_metni LIKE ? OR ham_sonuc_metni LIKE ?)
+           WHERE hasta_id = %s
+             AND (ham_mudahale_metni ILIKE %s OR ham_sonuc_metni ILIKE %s)
            ORDER BY sayfa_no""",
         (hasta_id, f"%{FORM_TAG}%", f"%{FORM_TAG}%"),
     )
@@ -101,7 +97,7 @@ def _page_text(conn, hasta_id, sayfa_no):
     cur = conn.cursor()
     cur.execute(
         """SELECT ham_mudahale_metni, ham_sonuc_metni FROM ziyaret
-           WHERE hasta_id = ? AND sayfa_no = ? ORDER BY id""",
+           WHERE hasta_id = %s AND sayfa_no = %s ORDER BY id""",
         (hasta_id, sayfa_no),
     )
     return " ".join(text for row in cur.fetchall() for text in row if text)
@@ -110,7 +106,7 @@ def _page_text(conn, hasta_id, sayfa_no):
 def _earliest_visit_date(conn, hasta_id):
     cur = conn.cursor()
     cur.execute(
-        "SELECT MIN(tarih) FROM ziyaret WHERE hasta_id = ? AND tarih IS NOT NULL",
+        "SELECT MIN(tarih) FROM ziyaret WHERE hasta_id = %s AND tarih IS NOT NULL",
         (hasta_id,),
     )
     return cur.fetchone()[0]
@@ -121,7 +117,7 @@ def run_demographic_extraction(conn):
     cur = conn.cursor()
     cur.execute(
         """SELECT DISTINCT hasta_id FROM ziyaret
-           WHERE ham_mudahale_metni LIKE ? OR ham_sonuc_metni LIKE ?
+           WHERE ham_mudahale_metni ILIKE %s OR ham_sonuc_metni ILIKE %s
            ORDER BY hasta_id""",
         (f"%{FORM_TAG}%", f"%{FORM_TAG}%"),
     )
@@ -130,7 +126,7 @@ def run_demographic_extraction(conn):
     for (hasta_id,) in tagged_rows:
         cur.execute(
             """SELECT cinsiyet, dogum_tarihi, cinsiyet_kaynagi, dogum_tarihi_kaynagi
-               FROM hasta WHERE id = ?""",
+               FROM hasta WHERE id = %s""",
             (hasta_id,),
         )
         existing_gender, existing_birth_date, existing_gender_source, existing_birth_source = cur.fetchone()
@@ -160,9 +156,9 @@ def run_demographic_extraction(conn):
             cinsiyet, gender_source = existing_gender, existing_gender_source
         cur.execute(
             """UPDATE hasta
-               SET cinsiyet = ?, dogum_tarihi = ?,
-                   cinsiyet_kaynagi = ?, dogum_tarihi_kaynagi = ?
-               WHERE id = ?""",
+               SET cinsiyet = %s, dogum_tarihi = %s,
+                   cinsiyet_kaynagi = %s, dogum_tarihi_kaynagi = %s
+               WHERE id = %s""",
             (
                 cinsiyet,
                 dogum_tarihi,

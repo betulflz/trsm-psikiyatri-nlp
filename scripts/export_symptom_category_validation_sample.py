@@ -14,7 +14,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Semptom kategori doğrulaması için iki değerlendiricili CSV oluşturur"
     )
-    parser.add_argument("db_path", help="Dolu SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("output_csv", help="Oluşturulacak ; ayrımlı CSV")
     parser.add_argument("--per-category", type=int, default=25, help="Her tema için hedef örnek sayısı")
     parser.add_argument("--uncertain", type=int, default=50, help="Sistem temaya bağlayamadığı hedef örnek sayısı")
@@ -22,7 +26,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Tekrarlanabilir örnekleme tohumu")
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         result = export_symptom_category_validation_sample(
             conn, args.output_csv, sample_per_category=args.per_category,

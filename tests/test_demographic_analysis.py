@@ -1,4 +1,5 @@
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.demographic_analysis import (
     age_group_for_age,
     demographic_coverage_summary,
@@ -12,19 +13,19 @@ def _insert_patient_visit_medication(conn, dosya, birth_date, gender, visit_date
     cur.execute(
         """INSERT INTO hasta
            (dosya_adi, dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet, cinsiyet_kaynagi)
-           VALUES (?, ?, 'manual_review', ?, 'manual_review')""",
+           VALUES (%s, %s, 'manual_review', %s, 'manual_review') RETURNING id""",
         (dosya, birth_date, gender),
     )
-    hasta_id = cur.lastrowid
+    hasta_id = cur.fetchone()[0]
     cur.execute(
-        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, ?, 1)",
+        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, %s, 1) RETURNING id",
         (hasta_id, visit_date),
     )
-    ziyaret_id = cur.lastrowid
+    ziyaret_id = cur.fetchone()[0]
     cur.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni)
-           VALUES (?, ?, ?, 100)""",
+           VALUES (%s, %s, %s, 100)""",
         (ziyaret_id, drug, drug),
     )
     conn.commit()
@@ -41,7 +42,7 @@ def test_age_group_for_age_handles_boundaries():
 
 
 def test_demographic_distribution_uses_verified_values_and_visit_age():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient_visit_medication(conn, "a.pdf", "15.07.1983", "Kadın", "2024-07-14", "IlacA")
     _insert_patient_visit_medication(conn, "b.pdf", "15.07.1983", "Kadın", "2024-07-15", "IlacB")
@@ -58,7 +59,7 @@ def test_demographic_distribution_uses_verified_values_and_visit_age():
 
 
 def test_demographic_coverage_reports_eligible_patients():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient_visit_medication(conn, "a.pdf", "15.07.1983", "Kadın", "2024-07-15", "IlacA")
 
@@ -73,14 +74,14 @@ def test_demographic_coverage_reports_eligible_patients():
 
 
 def test_patient_distribution_counts_repeated_visits_once_per_drug():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient_visit_medication(conn, "a.pdf", "15.07.1983", "Kadın", "2024-07-15", "IlacA")
     _insert_patient_visit_medication(conn, "b.pdf", "15.07.1983", "Kadın", "2024-07-15", "IlacA")
     patient_id = conn.execute("SELECT id FROM hasta WHERE dosya_adi='a.pdf'").fetchone()[0]
-    visit_id = conn.execute("SELECT id FROM ziyaret WHERE hasta_id=?", (patient_id,)).fetchone()[0]
+    visit_id = conn.execute("SELECT id FROM ziyaret WHERE hasta_id=%s", (patient_id,)).fetchone()[0]
     conn.execute(
-        "INSERT INTO ilac_kullanimi (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni) VALUES (?, 'IlacA', 'IlacA', 100)",
+        "INSERT INTO ilac_kullanimi (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni) VALUES (%s, 'IlacA', 'IlacA', 100)",
         (visit_id,),
     )
     conn.commit()

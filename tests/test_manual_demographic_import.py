@@ -2,17 +2,18 @@ from datetime import datetime
 
 from openpyxl import Workbook
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.manual_demographic_import import import_manual_demographics
 from trsm.patient_consolidation import consolidate_patients_by_source_folders
 
 
 def _insert_patient(conn, filename, visit_date="2024-01-01"):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (filename,))
-    patient_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (filename,))
+    patient_id = cur.fetchone()[0]
     cur.execute(
-        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, ?, 1)",
+        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, %s, 1)",
         (patient_id, visit_date),
     )
     conn.commit()
@@ -29,7 +30,7 @@ def _write_excel(path, rows):
 
 
 def test_manual_import_uses_valid_complete_values_and_normalizes_filename(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     patient_id = _insert_patient(conn, "Ali Öztürk 1.pdf")
     path = tmp_path / "manual.xlsx"
@@ -42,19 +43,19 @@ def test_manual_import_uses_valid_complete_values_and_normalizes_filename(tmp_pa
     assert report["cinsiyet"] == 1
     row = conn.execute(
         """SELECT dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet, cinsiyet_kaynagi
-           FROM hasta WHERE id=?""",
+           FROM hasta WHERE id=%s""",
         (patient_id,),
     ).fetchone()
     assert row == ("15.07.1980", "manual_review", "Erkek", "manual_review")
 
 
 def test_manual_import_excludes_question_mark_dates_but_keeps_gender(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     patient_id = _insert_patient(conn, "Ayşe.pdf")
     conn.execute(
         """UPDATE hasta SET dogum_tarihi='01.01.1980',
-           dogum_tarihi_kaynagi='RH.FR.002_ocr_ve_yas_kurali' WHERE id=?""",
+           dogum_tarihi_kaynagi='RH.FR.002_ocr_ve_yas_kurali' WHERE id=%s""",
         (patient_id,),
     )
     conn.commit()
@@ -65,14 +66,14 @@ def test_manual_import_excludes_question_mark_dates_but_keeps_gender(tmp_path):
 
     assert report["eksik_dogum_tarihi"] == 1
     row = conn.execute(
-        "SELECT dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet FROM hasta WHERE id=?",
+        "SELECT dogum_tarihi, dogum_tarihi_kaynagi, cinsiyet FROM hasta WHERE id=%s",
         (patient_id,),
     ).fetchone()
     assert row == (None, "manual_incomplete", "Kadın")
 
 
 def test_manual_import_reports_invalid_year_and_unmatched_filename(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient(conn, "Ahmet.pdf", visit_date="2024-01-01")
     path = tmp_path / "manual.xlsx"
@@ -89,7 +90,7 @@ def test_manual_import_reports_invalid_year_and_unmatched_filename(tmp_path):
 
 
 def test_manual_import_combines_multiple_pdf_rows_for_one_consolidated_person(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient(conn, "Dilan 1.pdf")
     _insert_patient(conn, "Dilan 2.pdf")
@@ -116,7 +117,7 @@ def test_manual_import_combines_multiple_pdf_rows_for_one_consolidated_person(tm
 
 
 def test_manual_import_joins_source_sibling_and_confirmed_spelling_alias(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_patient(conn, "Dilan 1.pdf")
     _insert_patient(conn, "Begüm Arslan Mert.pdf")
@@ -143,7 +144,7 @@ def test_manual_import_joins_source_sibling_and_confirmed_spelling_alias(tmp_pat
 
 
 def test_manual_import_marks_source_only_person_as_out_of_analysis(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     source_pdf = tmp_path / "Kaynakta Var" / "Kaynakta Var.pdf"
     source_pdf.parent.mkdir(parents=True)

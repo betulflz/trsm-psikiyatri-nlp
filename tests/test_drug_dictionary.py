@@ -1,4 +1,5 @@
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.drug_dictionary import load_drug_dictionary, load_drug_dictionary_into_db
 
 
@@ -23,7 +24,7 @@ def test_load_drug_dictionary_splits_pipe_separated_variations(tmp_path):
 
 
 def test_load_drug_dictionary_into_db_populates_tables():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
 
     load_drug_dictionary_into_db(conn, {"Venerys": ["Venerys", "Venegres"]})

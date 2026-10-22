@@ -1,6 +1,7 @@
 import numpy as np
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.treatment_response_analysis import (
     build_patient_transition_analysis,
     summarize_transition_analyses,
@@ -17,26 +18,26 @@ class ZeroModel:
 
 def _visit(conn, patient_id, visit_date, medicine, phrase):
     visit_id = conn.execute(
-        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, ?, 1)",
+        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, %s, 1) RETURNING id",
         (patient_id, visit_date),
-    ).lastrowid
+    ).fetchone()[0]
     conn.execute(
         """INSERT INTO ilac_kullanimi
            (ziyaret_id, ilac_adi_normalize, ilac_adi_ham, eslesme_guveni)
-           VALUES (?, ?, ?, 100)""",
+           VALUES (%s, %s, %s, 100)""",
         (visit_id, medicine, medicine),
     )
     conn.execute(
-        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, 'cluster_1')",
+        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, %s, 'cluster_1')",
         (visit_id, phrase),
     )
     conn.commit()
 
 
 def test_transition_analysis_compares_documented_themes_before_and_after_followup():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
     _visit(conn, patient_id, "2024-01-01", "Risperdal", "geceleri uyuyamıyor")
     _visit(conn, patient_id, "2024-02-01", "Depakin", "gelecek kaygısı")
     _visit(conn, patient_id, "2024-03-01", "Depakin", "gelecek kaygısı")

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from .cleaning import fill_missing_dates
 from .data_loading import load_raw_excel
-from .db import create_schema, get_connection
+from .db import create_schema, drop_schema, get_connection, table_exists
 from .demographic_extraction import run_demographic_extraction
 from .drug_dictionary import load_drug_dictionary, load_drug_dictionary_into_db
 from .drug_matching import build_surface_form_index
@@ -15,27 +15,35 @@ DEFAULT_DRUG_DICTIONARY_PATH = (
 )
 
 
+class DatabaseNotEmptyError(RuntimeError):
+    pass
+
+
+def _has_patient_data(conn):
+    return table_exists(conn, "hasta") and conn.execute(
+        "SELECT EXISTS (SELECT 1 FROM hasta)"
+    ).fetchone()[0]
+
+
 def run_pipeline(
     excel_path,
-    db_path,
+    database_url=None,
     drug_dictionary_path=DEFAULT_DRUG_DICTIONARY_PATH,
     symptom_model=None,
     overwrite=False,
 ):
-    db_file = Path(db_path)
-    if db_file.exists():
-        if not overwrite:
-            raise FileExistsError(
-                f"'{db_path}' veritabanı zaten mevcut. Üzerine yazmak için "
-                "overwrite=True parametresini kullanın veya dosyayı silin."
-            )
-        db_file.unlink()
-
-    df = load_raw_excel(excel_path)
-    df = fill_missing_dates(df)
-
-    conn = get_connection(db_path)
+    conn = get_connection(database_url)
     try:
+        if _has_patient_data(conn) and not overwrite:
+            raise DatabaseNotEmptyError(
+                "Veritabanında zaten hasta kaydı var. Tüm tabloları silip yeniden "
+                "oluşturmak için overwrite=True (komut satırında --overwrite) kullanın."
+            )
+
+        df = load_raw_excel(excel_path)
+        df = fill_missing_dates(df)
+
+        drop_schema(conn)
         create_schema(conn)
         load_visits(conn, df)
         run_demographic_extraction(conn)

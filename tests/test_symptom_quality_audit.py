@@ -1,6 +1,7 @@
 import numpy as np
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.symptom_quality_audit import format_symptom_quality_audit, run_symptom_quality_audit
 
 
@@ -13,12 +14,12 @@ class ZeroModel:
 
 
 def test_quality_audit_reports_automatic_signals_but_not_clinical_accuracy():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf')").lastrowid
-    visit_id = conn.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-01-01', 1)", (patient_id,)).lastrowid
-    conn.executemany(
-        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, 'cluster_1')",
+    patient_id = conn.execute("INSERT INTO hasta (dosya_adi) VALUES ('a.pdf') RETURNING id").fetchone()[0]
+    visit_id = conn.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-01-01', 1) RETURNING id", (patient_id,)).fetchone()[0]
+    conn.cursor().executemany(
+        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, %s, 'cluster_1')",
         [(visit_id, "geceleri uyuyamıyor"), (visit_id, "uykusuzluk yok")],
     )
     conn.commit()

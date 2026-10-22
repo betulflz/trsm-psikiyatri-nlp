@@ -1,6 +1,7 @@
 import numpy as np
 
-from trsm.db import get_connection, create_schema
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.symptom_similarity import (
     build_symptom_index,
     find_similar_phrases,
@@ -17,15 +18,15 @@ class FakeModel:
 
 def _insert_semptom(conn, dosya, ifade):
     cur = conn.cursor()
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (dosya,))
-    hasta_id = cur.lastrowid
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (dosya,))
+    hasta_id = cur.fetchone()[0]
     cur.execute(
-        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-01-01', 1)",
+        "INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-01-01', 1) RETURNING id",
         (hasta_id,),
     )
-    ziyaret_id = cur.lastrowid
+    ziyaret_id = cur.fetchone()[0]
     cur.execute(
-        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, 'kategorisiz')",
+        "INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, %s, 'kategorisiz')",
         (ziyaret_id, ifade),
     )
     conn.commit()
@@ -33,7 +34,7 @@ def _insert_semptom(conn, dosya, ifade):
 
 
 def test_build_and_load_symptom_index_round_trips(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     zid_a = _insert_semptom(conn, "a.pdf", "Aaaaa bir durum")
     zid_b = _insert_semptom(conn, "b.pdf", "Bbbbb iki durum")
@@ -48,7 +49,7 @@ def test_build_and_load_symptom_index_round_trips(tmp_path):
 
 
 def test_symptom_index_excludes_administrative_and_negative_status_records(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     kept = _insert_semptom(conn, "kept.pdf", "uykusuzluk var")
     _insert_semptom(conn, "admin.pdf", "Hasta ile bireysel görüşme yapıldı")

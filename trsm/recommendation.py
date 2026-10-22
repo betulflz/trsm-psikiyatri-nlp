@@ -22,13 +22,13 @@ def compute_drug_statistics(conn, ziyaret_ids, guven_esigi=90):
     if not ziyaret_ids:
         return []
 
-    placeholders = ",".join("?" * len(ziyaret_ids))
+    placeholders = ",".join(["%s"] * len(ziyaret_ids))
     query = f"""
         SELECT ilac_adi_normalize, COUNT(*) as sayi
         FROM ilac_kullanimi
-        WHERE ziyaret_id IN ({placeholders}) AND eslesme_guveni >= ?
+        WHERE ziyaret_id IN ({placeholders}) AND eslesme_guveni >= %s
         GROUP BY ilac_adi_normalize
-        ORDER BY sayi DESC
+        ORDER BY sayi DESC, ilac_adi_normalize ASC
     """
     cur = conn.cursor()
     cur.execute(query, list(ziyaret_ids) + [guven_esigi])

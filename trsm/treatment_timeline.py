@@ -28,8 +28,8 @@ def _medication_days(conn, patient_id, confidence_threshold=90):
         """SELECT z.id, z.tarih, ik.ilac_adi_normalize, ik.doz, ik.siklik
            FROM ziyaret z
            LEFT JOIN ilac_kullanimi ik
-             ON ik.ziyaret_id = z.id AND ik.eslesme_guveni >= ?
-           WHERE z.hasta_id = ?
+             ON ik.ziyaret_id = z.id AND ik.eslesme_guveni >= %s
+           WHERE z.hasta_id = %s
            ORDER BY z.tarih, z.id""",
         (confidence_threshold, patient_id),
     ).fetchall()
@@ -54,7 +54,8 @@ def _symptom_counts_by_day(conn, patient_id):
     rows = conn.execute(
         """SELECT z.tarih, sk.ifade_ham
            FROM ziyaret z JOIN semptom_kaydi sk ON sk.ziyaret_id = z.id
-           WHERE z.hasta_id = ? AND trim(sk.ifade_ham) != ''""",
+           WHERE z.hasta_id = %s AND trim(sk.ifade_ham) != ''
+           ORDER BY sk.id""",
         (patient_id,),
     ).fetchall()
     surface_form_index = build_surface_form_index_from_db(conn)
@@ -71,7 +72,7 @@ def _theme_details_by_day(conn, patient_id, model, seed_embeddings=None):
     rows = conn.execute(
         """SELECT z.tarih, sk.ifade_ham
            FROM ziyaret z JOIN semptom_kaydi sk ON sk.ziyaret_id = z.id
-           WHERE z.hasta_id = ? AND trim(sk.ifade_ham) != ''
+           WHERE z.hasta_id = %s AND trim(sk.ifade_ham) != ''
            ORDER BY z.tarih, sk.id""",
         (patient_id,),
     ).fetchall()
@@ -102,7 +103,7 @@ def build_theme_details_for_patients(conn, patient_ids, model, seed_embeddings=N
     """Batch-build theme presence by pseudonymous patient/day for trend analysis."""
     if not patient_ids:
         return {}
-    placeholders = ",".join("?" * len(patient_ids))
+    placeholders = ",".join(["%s"] * len(patient_ids))
     rows = conn.execute(
         f"""SELECT z.hasta_id, z.tarih, sk.ifade_ham
             FROM ziyaret z JOIN semptom_kaydi sk ON sk.ziyaret_id = z.id

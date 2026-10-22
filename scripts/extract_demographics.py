@@ -17,7 +17,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="RH.FR.002 formlarından denetlenebilir demografik veri çıkarır"
     )
-    parser.add_argument("db_path", help="Mevcut SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument(
         "--review-csv",
         default="data/demographic_ocr_review.csv",
@@ -36,7 +40,7 @@ def main():
 
     review_path = Path(args.review_csv)
     review_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         run_demographic_extraction(conn)
         if args.overrides_csv:

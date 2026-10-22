@@ -15,12 +15,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="Gözlenen ilaç listesi değişimi olan hastaları kimliksiz CSV olarak dışa aktarır"
     )
-    parser.add_argument("db_path", help="Dolu SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("output_csv", help="Oluşturulacak ; ayrımlı CSV")
     parser.add_argument("--confidence", type=float, default=90, help="Minimum OCR ilaç eşleşme güveni")
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         candidates = list_treatment_change_candidates(conn, args.confidence)
     finally:

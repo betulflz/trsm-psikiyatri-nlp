@@ -2,7 +2,8 @@ import csv
 
 import numpy as np
 
-from trsm.db import create_schema, get_connection
+from trsm.db import create_schema
+from tests.pg import fresh_connection
 from trsm.symptom_validation import (
     compute_symptom_category_metrics,
     export_symptom_category_validation_sample,
@@ -21,16 +22,16 @@ class ZeroModel:
 def _insert_phrase(conn, phrase):
     cur = conn.cursor()
     suffix = conn.execute("SELECT COUNT(*) FROM hasta").fetchone()[0]
-    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (?)", (f"a{suffix}.pdf",))
-    patient_id = cur.lastrowid
-    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (?, '2024-01-01', 1)", (patient_id,))
-    visit_id = cur.lastrowid
-    cur.execute("INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (?, ?, 'cluster_1')", (visit_id, phrase))
+    cur.execute("INSERT INTO hasta (dosya_adi) VALUES (%s) RETURNING id", (f"a{suffix}.pdf",))
+    patient_id = cur.fetchone()[0]
+    cur.execute("INSERT INTO ziyaret (hasta_id, tarih, sayfa_no) VALUES (%s, '2024-01-01', 1) RETURNING id", (patient_id,))
+    visit_id = cur.fetchone()[0]
+    cur.execute("INSERT INTO semptom_kaydi (ziyaret_id, ifade_ham, kategori) VALUES (%s, %s, 'cluster_1')", (visit_id, phrase))
     conn.commit()
 
 
 def test_export_symptom_validation_sample_is_blinded_and_contains_predictions(tmp_path):
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
     _insert_phrase(conn, "geceleri uyuyamıyor")
     _insert_phrase(conn, "gelecek kaygısı")

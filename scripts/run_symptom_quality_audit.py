@@ -13,13 +13,17 @@ from trsm.symptom_quality_audit import format_symptom_quality_audit, run_symptom
 
 def main():
     parser = argparse.ArgumentParser(description="Semptom kategori sistemi için otomatik kalite denetimi üretir")
-    parser.add_argument("db_path", help="Dolu SQLite veritabanı")
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL adresi (varsayılan: .env içindeki DATABASE_URL)",
+    )
     parser.add_argument("--sample-size", type=int, default=5000, help="Rastgele incelenecek ifade sayısı")
     parser.add_argument("--seed", type=int, default=42, help="Tekrarlanabilir örnekleme tohumu")
     parser.add_argument("--report-dir", default="docs/analysis_reports", help="Markdown rapor klasörü")
     args = parser.parse_args()
 
-    conn = get_connection(args.db_path)
+    conn = get_connection(args.database_url)
     try:
         result = run_symptom_quality_audit(conn, args.sample_size, args.seed)
     finally:

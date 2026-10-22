@@ -46,7 +46,8 @@ def demographic_medication_records(conn, guven_esigi=90):
         FROM ilac_kullanimi ik
         JOIN ziyaret z ON z.id = ik.ziyaret_id
         JOIN hasta h ON h.id = z.hasta_id
-        WHERE ik.eslesme_guveni >= ?
+        WHERE ik.eslesme_guveni >= %s
+        ORDER BY ik.id
     """
     rows = conn.execute(query, (guven_esigi,)).fetchall()
     records = []

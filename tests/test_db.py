@@ -1,29 +1,38 @@
-import sqlite3
-from trsm.db import get_connection, create_schema
+import pytest
+
+from trsm.db import create_schema, drop_schema, table_columns, table_exists
+from tests.pg import fresh_connection
 
 
 def test_create_schema_creates_all_tables():
-    conn = get_connection(":memory:")
+    conn = fresh_connection()
     create_schema(conn)
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = {row[0] for row in cur.fetchall()}
     expected = {
         "hasta", "ziyaret", "ilac_sozluk", "ilac_varyasyon",
-        "ilac_kullanimi", "semptom_kaydi",
+        "ilac_kullanimi", "semptom_kaydi", "hasta_dosya", "kullanici",
     }
-    assert expected.issubset(tables)
+    assert all(table_exists(conn, table) for table in expected)
+    assert "kaynak_dosya_adi" in table_columns(conn, "ziyaret")
 
 
-def test_get_connection_enables_foreign_keys():
-    conn = get_connection(":memory:")
-    cur = conn.cursor()
-    cur.execute("PRAGMA foreign_keys")
-    assert cur.fetchone()[0] == 1
+def test_create_schema_is_idempotent():
+    conn = fresh_connection()
+    create_schema(conn)
+    create_schema(conn)
+    assert table_exists(conn, "hasta")
 
 
-def test_get_connection_with_check_same_thread_false_works():
-    conn = get_connection(":memory:", check_same_thread=False)
-    cur = conn.cursor()
-    cur.execute("SELECT 1")
-    assert cur.fetchone()[0] == 1
+def test_foreign_keys_are_enforced():
+    import psycopg
+
+    conn = fresh_connection()
+    create_schema(conn)
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        conn.execute("INSERT INTO ziyaret (hasta_id) VALUES (999)")
+
+
+def test_drop_schema_removes_project_tables():
+    conn = fresh_connection()
+    create_schema(conn)
+    drop_schema(conn)
+    assert not table_exists(conn, "hasta")
