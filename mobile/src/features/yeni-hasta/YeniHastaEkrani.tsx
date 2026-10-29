@@ -12,8 +12,8 @@ import { validateKimlik, type KimlikForm } from './dogrulama';
 import { KimlikAdimi } from './KimlikAdimi';
 import { RaporAdimi } from './RaporAdimi';
 import { deleteDraft, saveDraft } from './taslak';
-import type { PageOcr, ReportOcr } from './ocr';
-import { createReportUpload } from './ocr';
+import type { PageOcr } from './ocr';
+import { readReport } from './ocr';
 
 const EMPTY: KimlikForm = { adSoyad: '', cinsiyet: null, dogumTarihi: null, tcKimlik: '' };
 
@@ -39,8 +39,9 @@ export function YeniHastaEkrani() {
       for (const uri of uris) {
         setOcr((old) => ({ ...old, [uri]: { status: 'loading' } }));
         try {
-          const body = createReportUpload(uri);
-          const result = await client.upload<ReportOcr>('/api/m/rapor/ocr', body);
+          const result = await readReport(client, uri, (progress) =>
+            setOcr((old) => ({ ...old, [uri]: { status: 'loading', progress } })),
+          );
           setOcr((old) => ({ ...old, [uri]: { status: 'done', result } }));
         } catch (error) {
           setOcr((old) => ({ ...old, [uri]: { status: 'error', error: error instanceof Error ? error.message : 'Rapor okunamadı.' } }));

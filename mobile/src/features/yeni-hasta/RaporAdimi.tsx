@@ -79,12 +79,12 @@ export function RaporAdimi({ pages, onChange, onBack, onSave, saving, ocr, readi
         <View key={uri} style={{ gap: 8 }}>
           <Text variant="label">Sayfa {index + 1} · Okunan metin</Text>
           <Text selectable variant="bodySmall" color="inkMuted">
-            {ocr[uri]?.status === 'loading' ? 'Rapor okunuyor…' : ocr[uri]?.status === 'done' ? ocr[uri].result?.metin || 'Bu fotoğrafta metin bulunamadı. Daha net bir fotoğraf deneyebilirsiniz.' : ocr[uri]?.error || 'Okuma bekleniyor…'}
+            {ocr[uri]?.status === 'loading' ? ocr[uri].progress || 'Fotoğraf gönderiliyor…' : ocr[uri]?.status === 'done' ? ocr[uri].result?.metin || 'Bu fotoğrafta metin bulunamadı. Daha net bir fotoğraf deneyebilirsiniz.' : ocr[uri]?.error || 'Okuma bekleniyor…'}
           </Text>
           <Button title="Yeniden oku" variant="ghost" disabled={reading || saving} onPress={() => { void onRead([uri]); }} />
         </View>
       ))}
-      <Text variant="bodySmall" color="inkMuted">Fotoğraflar yerel sunucuda okunur. Okunan metin hatalı olabilir; kontrol edin.</Text>
+      <Text variant="bodySmall" color="inkMuted">Fotoğraflar sunucuda Qwen ile okunur ve saklanmaz. Bir sayfa birkaç dakika sürebilir; okunan metin hatalı olabilir, kontrol edin.</Text>
       <Button title="Taslağı kaydet" onPress={onSave} loading={saving} disabled={pages.length === 0 || reading} />
       <Button title="Geri: kimlik bilgileri" variant="ghost" disabled={reading || saving} onPress={onBack} />
     </View>

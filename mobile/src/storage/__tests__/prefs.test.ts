@@ -29,7 +29,7 @@ beforeEach(async () => {
 });
 
 it('OCR metni sayfa sırasıyla saklanır ve eski taslaklar okunabilir', async () => {
-  const report = { ...draft('ocr', null), ocr: [{ metin: 'Rapor metni', motor: 'tesseract', dil: 'eng' }] };
+  const report = { ...draft('ocr', null), ocr: [{ metin: 'Rapor metni', motor: 'qwen3.5:9b' }] };
   await prefs.setDrafts([report, draft('eski', null)]);
   expect(await prefs.getDraftsFor(1)).toEqual([report, draft('eski', null)]);
 });

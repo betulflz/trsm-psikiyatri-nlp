@@ -8,7 +8,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
-from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, read_report
+from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
 from trsm.mobile_api.users import authenticate, get_user, list_users
 
@@ -43,11 +43,12 @@ def _int_arg(name, default):
 
 
 def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90, today=date.today,
-                            status_extra=lambda: {}):
+                            status_extra=lambda: {}, ocr_queue=None):
     serializer = make_serializer(secret_key)
     with closing(get_connection(database_url)) as conn:
         create_schema(conn)
     bp = Blueprint("mobile_api", __name__, url_prefix="/api/m")
+    ocr_jobs = ocr_queue or OcrQueue()
 
     def connect():
         return closing(get_connection(database_url))
@@ -110,11 +111,19 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
             photo = request.files.get("foto")
             if photo is None:
                 return _error(400, "foto_gerekli", "Bir rapor fotoğrafı seçin.")
-            return jsonify(read_report(photo.read(MAX_IMAGE_BYTES + 1)))
+            return jsonify(ocr_jobs.submit(photo.read(MAX_IMAGE_BYTES + 1), g.mobil_kullanici["id"])), 202
         except RequestEntityTooLarge:
             return _error(413, "foto_buyuk", "Fotoğraf en fazla 12 MB olabilir.")
         except OcrError as exc:
             return _error(exc.status, "ocr_hatasi", str(exc))
+
+    @bp.get("/rapor/ocr/<is_id>")
+    @requires(*CLINICAL_ROLES)
+    def report_ocr_status(is_id):
+        job = ocr_jobs.status(is_id, g.mobil_kullanici["id"])
+        if job is None:
+            return _error(404, "is_yok", "Okuma işi bulunamadı. Fotoğrafı yeniden gönderin.")
+        return jsonify(job)
 
     @bp.get("/hastalar")
     @requires(*CLINICAL_ROLES)
