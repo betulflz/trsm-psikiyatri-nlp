@@ -5,6 +5,8 @@ koddan ibarettir; kodun kime ait olduğunu yalnızca doktor bilir. Yaş, doğum 
 yuvarlanır (1 Temmuz kabulü), böylece mevcut yaş hesabı ve analizler değişmeden çalışır.
 """
 import secrets
+
+from psycopg import errors
 from datetime import date
 
 from trsm.deidentification import deidentify
@@ -15,7 +17,8 @@ from trsm.symptom_extraction import is_probable_symptom, split_into_phrases
 KAYNAK = "mobil_anonim"
 CINSIYETLER = {"K": "Kadın", "E": "Erkek"}
 MIN_YAS, MAX_YAS = 15, 100
-MAX_SAYFA, MAX_KARAKTER = 20, 20_000
+MAX_SAYFA, MAX_KARAKTER, MAX_TOPLAM = 20, 20_000, 100_000
+MAX_ISTEK_BAYT = 512 * 1024
 
 
 class RecordError(ValueError):
@@ -39,6 +42,8 @@ def validate(body, today):
     if (not isinstance(pages, list) or not 1 <= len(pages) <= MAX_SAYFA
             or not all(isinstance(p, str) and p.strip() and len(p) <= MAX_KARAKTER for p in pages)):
         raise RecordError("sayfa_gecersiz", f"1–{MAX_SAYFA} sayfa metni gerekli (sayfa başına en fazla {MAX_KARAKTER} karakter).")
+    if sum(len(p) for p in pages) > MAX_TOPLAM:
+        raise RecordError("sayfa_gecersiz", f"Toplam metin en fazla {MAX_TOPLAM} karakter olabilir.")
     raw_date = body.get("ziyaret_tarihi") or today.isoformat()
     try:
         visit_date = date.fromisoformat(raw_date)
@@ -54,15 +59,22 @@ def save_anonymous_record(conn, body, today):
     # Doktor metni düzenlemiş olabilir; kayıttan önce temizlik yeniden yapılır.
     cleaned = [deidentify(page) for page in pages]
     surface_forms = build_surface_form_index_from_db(conn)
-    code = "ANON-" + secrets.token_hex(4).upper()
     birth = f"01.07.{visit_date.year - yas}"
 
     cur = conn.cursor()
-    cur.execute(
-        """INSERT INTO hasta (dosya_adi, cinsiyet, dogum_tarihi, cinsiyet_kaynagi, dogum_tarihi_kaynagi)
-           VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-        (code, cinsiyet, birth, KAYNAK, KAYNAK + "_yas"),
-    )
+    for attempt in range(3):
+        code = "ANON-" + secrets.token_hex(6).upper()
+        try:
+            cur.execute(
+                """INSERT INTO hasta (dosya_adi, cinsiyet, dogum_tarihi, cinsiyet_kaynagi, dogum_tarihi_kaynagi)
+                   VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+                (code, cinsiyet, birth, KAYNAK, KAYNAK + "_yas"),
+            )
+            break
+        except errors.UniqueViolation:
+            conn.rollback()
+            if attempt == 2:
+                raise
     hasta_id = cur.fetchone()[0]
     drugs, symptom_count, removed = [], 0, {}
     for page_no, page in enumerate(cleaned, start=1):

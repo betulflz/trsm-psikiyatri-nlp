@@ -8,7 +8,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
-from trsm.mobile_api.anonymous_record import RecordError, save_anonymous_record
+from trsm.mobile_api.anonymous_record import MAX_ISTEK_BAYT, RecordError, save_anonymous_record
 from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
 from trsm.mobile_api.login_limit import LoginLimiter, client_key
@@ -130,9 +130,13 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
     @bp.post("/kayit/anonim")
     @requires(*CLINICAL_ROLES)
     def anonymous_record():
+        request.max_content_length = MAX_ISTEK_BAYT
         try:
+            body = request.get_json(silent=True)
             with connect() as conn:
-                return jsonify(save_anonymous_record(conn, request.get_json(silent=True), today())), 201
+                return jsonify(save_anonymous_record(conn, body, today())), 201
+        except RequestEntityTooLarge:
+            return _error(413, "istek_buyuk", "Gönderilen metin çok büyük.")
         except RecordError as exc:
             return _error(400, exc.code, str(exc))
 

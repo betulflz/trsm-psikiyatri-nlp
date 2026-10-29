@@ -65,6 +65,12 @@ def test_rejects_invalid_input(ctx, change, kod):  # noqa: F811
     assert response.get_json()["kod"] == kod
 
 
+def test_rejects_oversized_request(ctx):  # noqa: F811
+    client, _ = ctx
+    response = client.post("/api/m/kayit/anonim", json=_body(sayfalar=["x" * 19_000] * 30), headers=_login(client, "doktor"))
+    assert response.status_code == 413
+
+
 def test_only_clinical_roles(ctx):  # noqa: F811
     client, _ = ctx
     assert client.post("/api/m/kayit/anonim", json=_body()).status_code == 401

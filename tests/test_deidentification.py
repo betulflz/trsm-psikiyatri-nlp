@@ -49,8 +49,13 @@ def test_unlabeled_identifiers():
     assert "Fatma" not in text and "0532" not in text
 
 
+def test_split_tc_number():
+    result = deidentify("Kimlik 123 456 789 01 ve 123-456-789-01")
+    assert result["metin"] == "Kimlik [TC] ve [TC]"
+
+
 def test_doses_dates_and_ages_are_not_identifiers():
-    text = "Ketiapin 25 mg 1x1, kontrol 21.04.2025, 3 ay sonra. 34 yaşında kadın. Lityum 300 mg 2x1"
+    text = "Ketiapin 25 mg 1x1, kontrol 21.04.2025 10.05.2025, 3 ay sonra. 34 yaşında kadın. Lityum 300 mg 2x1"
     result = deidentify(text)
     assert result["metin"] == text
     assert result["temizlenen"] == {}

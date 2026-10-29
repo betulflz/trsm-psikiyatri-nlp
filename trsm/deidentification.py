@@ -3,6 +3,9 @@
 Birinci hat telefonda fotoğrafın kimlik satırlarının karartılması, üçüncüsü doktorun onayıdır.
 Silinen değerler hiçbir yerde tutulmaz; yalnızca hangi türden kaç tane silindiği döner.
 Yaş, cinsiyet, ziyaret tarihi, şikâyet ve ilaçlar analiz için korunur.
+
+Sınır: etiketsiz serbest metindeki isimler ("Ayşe bugün geldi") kural tabanlı olarak
+yakalanamaz; bu yüzden telefondaki karartma ve doktorun onayı zorunludur.
 """
 import re
 from collections import Counter
@@ -33,7 +36,8 @@ _LABEL_RE = [
 ]
 
 _PATTERNS = [
-    (re.compile(r"(?<!\d)[1-9]\d{10}(?!\d)"), "tc", "[TC]"),
+    # Boşluk/tireyle bölünmüş TC de yakalanır; tarihler nokta kullandığı için etkilenmez.
+    (re.compile(r"(?<!\d)[1-9](?:[ \-]?\d){10}(?!\d)"), "tc", "[TC]"),
     (re.compile(r"(?<!\d)(?:\+?90[\s\-]?|0)?\(?[2-5]\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}(?!\d)"), "telefon", "[TELEFON]"),
     (re.compile(r"[\w.+\-]+@[\w\-]+\.[\w.\-]+"), "eposta", "[E-POSTA]"),
     (re.compile(rf"\b[A-ZÇĞİÖŞÜ]{_WORD[:-1]}]+(?:\s+[A-ZÇĞİÖŞÜ]{_WORD[:-1]}]+)?\s+(?:Han[ıi]m|Hn\.?|Bey|Bayan|Bay)\b"), "ad", "[İSİM]"),
