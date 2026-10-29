@@ -41,22 +41,17 @@ class _Counter:
             self.failures.pop(key, None)
         return recent
 
-    def _make_room(self):
-        """Yalnızca kilitli olmayan kayıtları atar; kilitli kayıtlar hiçbir zaman atılmaz."""
-        for old in list(self.failures):
-            if len(self.recent(old)) < self.limit:
-                self.failures.pop(old, None)
-        return len(self.failures) < MAX_TRACKED
-
     def is_locked(self, key):
-        if len(self.recent(key)) >= self.limit:
-            return True
-        # Tablo kilitli kayıtlarla doluysa izlenemeyen yeni anahtar da kilitli sayılır (güvenli taraf).
-        return key not in self.failures and len(self.failures) >= MAX_TRACKED and not self._make_room()
+        return len(self.recent(key)) >= self.limit
 
     def add(self, key):
-        if key not in self.failures and len(self.failures) >= MAX_TRACKED and not self._make_room():
-            return
+        if key not in self.failures and len(self.failures) >= MAX_TRACKED:
+            for old in list(self.failures):
+                self.recent(old)  # yalnızca süresi tamamen dolmuş kayıtlar düşer; canlı sayaçlar korunur
+            if len(self.failures) >= MAX_TRACKED:
+                # Kabul edilen risk: tablo 10 dk içinde 1024 canlı kayıtla doluysa (5 binden fazla hatalı
+                # giriş) yeni anahtar izlenmez; kullanıcı adı sınırı yine işler. Kimse toptan kilitlenmez.
+                return
         self.failures.setdefault(key, []).append(self.clock())
         self.failures[key] = self.failures[key][-self.limit:]
 
