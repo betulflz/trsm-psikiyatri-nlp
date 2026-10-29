@@ -29,6 +29,12 @@ def test_example_page_keeps_clinical_content():
     ("D.T: 01.02.1990", "1990", "dogum"),
     ("Protokol no: 778899", "778899", "dosya_no"),
     ("T.C. Kimlik No: 98765432109", "98765432109", "tc"),
+    ("Ad: Ayşe", "Ayşe", "ad"),
+    ("Soyad: Örnek", "Örnek", "ad"),
+    ("AD SOYAD: AYŞE ÖRNEK", "AYŞE", "ad"),
+    ("ADI SOYADI: Ayşe Örnek", "Ayşe", "ad"),
+    ("İsim: Ayşe", "Ayşe", "ad"),
+    ("Ad Soyad: Ayşe      Örnek", "Örnek", "ad"),
 ])
 def test_labeled_fields(line, secret, kind):
     result = deidentify(line)

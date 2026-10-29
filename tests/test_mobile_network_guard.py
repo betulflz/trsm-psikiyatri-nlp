@@ -99,3 +99,5 @@ def test_repeated_wrong_passwords_lock_the_account():
     response = client.get("/", headers={**funnel, **_basic("doktor", "dogru")})
     assert response.status_code == 429
     assert len(calls) == 5  # kilitliyken şifre denenmez bile
+    other_device = {"Tailscale-Funnel-Request": "?1", "X-Forwarded-For": "100.64.0.9"}
+    assert client.get("/", headers={**other_device, **_basic("doktor", "dogru")}).status_code == 200
