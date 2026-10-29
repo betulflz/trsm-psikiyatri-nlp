@@ -64,6 +64,15 @@ def test_login_failures(ctx, payload, status, kod):
     assert response.get_json()["kod"] == kod
 
 
+def test_login_locks_after_repeated_failures(ctx):
+    client, _ = ctx
+    for _ in range(5):
+        assert client.post("/api/m/giris", json={"kullanici_adi": "doktor", "sifre": "yanlis"}).status_code == 401
+    response = client.post("/api/m/giris", json={"kullanici_adi": "doktor", "sifre": "doktor-sifre"})
+    assert response.status_code == 429
+    assert response.get_json()["kod"] == "giris_kilitli"
+
+
 @pytest.mark.parametrize("header", [None, "Bearer bozuk", "Token x"])
 def test_missing_or_bad_token_is_401(ctx, header):
     client, _ = ctx

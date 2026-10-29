@@ -35,6 +35,7 @@ from trsm.treatment_response_analysis import build_patient_transition_analysis
 from trsm.treatment_timeline import build_patient_drug_trend, list_treatment_change_candidates
 from trsm.mobile_api import create_mobile_blueprint
 from trsm.mobile_api.auth import load_or_create_secret
+from trsm.mobile_api.blueprint import CLINICAL_ROLES
 from trsm.mobile_api.network_guard import restrict_legacy_to_loopback
 from trsm.mobile_api.users import authenticate
 from trsm.runtime_paths import runtime_data_paths
@@ -52,7 +53,8 @@ app = Flask(__name__, static_folder=None)
 
 def _demo_login(kullanici_adi, sifre):
     with closing(get_connection(DATABASE_URL)) as conn:
-        return authenticate(conn, kullanici_adi, sifre) is not None
+        user = authenticate(conn, kullanici_adi, sifre)
+    return user is not None and user["rol"] in CLINICAL_ROLES  # mobildeki gibi admin klinik veriyi görmez
 
 
 # Ağdan/Funnel'dan gelen istekler eski demo uç noktalarına yalnızca Psikord hesabıyla girer.

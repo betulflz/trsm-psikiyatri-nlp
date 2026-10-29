@@ -82,3 +82,20 @@ def test_remote_login_with_mobile_account():
     assert client.get("/", headers={**funnel, **_basic("doktor", "dogru")}).status_code == 200
     assert calls == ["doktor", "doktor"]  # başarılı giriş önbellekte; şifre yeniden doğrulanmaz
     assert _get(client, "/", "192.168.1.40").status_code == 401
+
+
+def test_require_login_env_closes_loopback_too(monkeypatch):
+    monkeypatch.setenv("TRSM_REQUIRE_LOGIN", "1")
+    client, _ = _app_with_login()
+    assert _get(client, "/", "127.0.0.1").status_code == 401
+    assert client.get("/", headers=_basic("doktor", "dogru")).status_code == 200
+
+
+def test_repeated_wrong_passwords_lock_the_account():
+    client, calls = _app_with_login()
+    funnel = {"Tailscale-Funnel-Request": "?1"}
+    for _ in range(5):
+        assert client.get("/", headers={**funnel, **_basic("doktor", "yanlis")}).status_code == 401
+    response = client.get("/", headers={**funnel, **_basic("doktor", "dogru")})
+    assert response.status_code == 429
+    assert len(calls) == 5  # kilitliyken şifre denenmez bile

@@ -10,6 +10,7 @@ from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
 from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
+from trsm.mobile_api.login_limit import LoginLimiter
 from trsm.mobile_api.users import authenticate, get_user, list_users
 
 CLINICAL_ROLES = ("doktor", "hemsire")
@@ -43,12 +44,13 @@ def _int_arg(name, default):
 
 
 def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90, today=date.today,
-                            status_extra=lambda: {}, ocr_queue=None):
+                            status_extra=lambda: {}, ocr_queue=None, login_limiter=None):
     serializer = make_serializer(secret_key)
     with closing(get_connection(database_url)) as conn:
         create_schema(conn)
     bp = Blueprint("mobile_api", __name__, url_prefix="/api/m")
     ocr_jobs = ocr_queue or OcrQueue()
+    limiter = login_limiter or LoginLimiter()
 
     def connect():
         return closing(get_connection(database_url))
@@ -86,10 +88,14 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
         password = str(body.get("sifre") or "")
         if not username or not password:
             return _error(400, "eksik_bilgi", "Kullanıcı adı ve şifre gerekli.")
+        if limiter.locked(username):
+            return _error(429, "giris_kilitli", "Çok fazla hatalı giriş. 10 dakika sonra tekrar deneyin.")
         with connect() as conn:
             user = authenticate(conn, username, password)
         if user is None:
+            limiter.failed(username)
             return _error(401, "hatali_giris", "Kullanıcı adı ya da şifre hatalı.")
+        limiter.succeeded(username)
         return jsonify({"token": issue_token(serializer, user["id"]), "kullanici": _public(user)})
 
     @bp.get("/ben")
