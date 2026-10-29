@@ -23,6 +23,7 @@ def ctx():
         path, SECRET, today=lambda: date(2026, 10, 12),
         status_extra=lambda: {"semptom_indeksi": True, "ollama": False},
     ))
+    app.config["TRSM_TEST_DB"] = path
     with closing(get_connection(path)) as conn:
         for role in ("doktor", "hemsire", "admin"):
             ensure_user(conn, role, f"Demo {role}", role, f"{role}-sifre")

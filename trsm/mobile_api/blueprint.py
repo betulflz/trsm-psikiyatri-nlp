@@ -8,6 +8,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
+from trsm.mobile_api.anonymous_record import RecordError, save_anonymous_record
 from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
 from trsm.mobile_api.login_limit import LoginLimiter
@@ -122,6 +123,15 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
             return _error(413, "foto_buyuk", "Fotoğraf en fazla 12 MB olabilir.")
         except OcrError as exc:
             return _error(exc.status, "ocr_hatasi", str(exc))
+
+    @bp.post("/kayit/anonim")
+    @requires(*CLINICAL_ROLES)
+    def anonymous_record():
+        try:
+            with connect() as conn:
+                return jsonify(save_anonymous_record(conn, request.get_json(silent=True), today())), 201
+        except RecordError as exc:
+            return _error(400, exc.code, str(exc))
 
     @bp.get("/rapor/ocr/<is_id>")
     @requires(*CLINICAL_ROLES)
