@@ -39,9 +39,10 @@ def test_full_table_never_drops_locked_entries(monkeypatch):
     assert limiter.locked("kurban", "a")
 
 
-def test_new_failures_are_counted_even_when_table_is_full_of_locks(monkeypatch):
+def test_table_full_of_locks_fails_closed(monkeypatch):
     monkeypatch.setattr(login_limit, "MAX_TRACKED", 2)
     limiter = LoginLimiter(max_failures=1, max_per_user=1000)
-    for name in ("a", "b", "c"):
+    for name in ("a", "b"):
         limiter.failed(name, "x")
-    assert limiter.locked("c", "x")
+    assert limiter.locked("a", "x") and limiter.locked("b", "x")  # kilitler korunur
+    assert limiter.locked("yeni", "x")  # izlenemeyen yeni anahtar reddedilir

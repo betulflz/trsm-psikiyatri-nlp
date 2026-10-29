@@ -41,13 +41,22 @@ class _Counter:
             self.failures.pop(key, None)
         return recent
 
+    def _make_room(self):
+        """Yalnızca kilitli olmayan kayıtları atar; kilitli kayıtlar hiçbir zaman atılmaz."""
+        for old in list(self.failures):
+            if len(self.recent(old)) < self.limit:
+                self.failures.pop(old, None)
+        return len(self.failures) < MAX_TRACKED
+
+    def is_locked(self, key):
+        if len(self.recent(key)) >= self.limit:
+            return True
+        # Tablo kilitli kayıtlarla doluysa izlenemeyen yeni anahtar da kilitli sayılır (güvenli taraf).
+        return key not in self.failures and len(self.failures) >= MAX_TRACKED and not self._make_room()
+
     def add(self, key):
-        if key not in self.failures and len(self.failures) >= MAX_TRACKED:
-            for old in list(self.failures):
-                if len(self.recent(old)) < self.limit:
-                    self.failures.pop(old, None)  # kilitli kayıtlar hiçbir zaman atılmaz
-            if len(self.failures) >= MAX_TRACKED:  # hepsi kilitli: en eskiyi at, yeni deneme yine sayılsın
-                self.failures.pop(min(self.failures, key=lambda k: self.failures[k][-1]), None)
+        if key not in self.failures and len(self.failures) >= MAX_TRACKED and not self._make_room():
+            return
         self.failures.setdefault(key, []).append(self.clock())
         self.failures[key] = self.failures[key][-self.limit:]
 
@@ -66,8 +75,7 @@ class LoginLimiter:
     def locked(self, username, source=""):
         client, user = self._keys(username, source)
         with self._lock:
-            return (len(self._by_client.recent(client)) >= self._by_client.limit
-                    or len(self._by_user.recent(user)) >= self._by_user.limit)
+            return self._by_client.is_locked(client) or self._by_user.is_locked(user)
 
     def failed(self, username, source=""):
         client, user = self._keys(username, source)
@@ -76,7 +84,7 @@ class LoginLimiter:
             self._by_user.add(user)
 
     def succeeded(self, username, source=""):
-        client, user = self._keys(username, source)
+        # Kullanıcı adı sayacı sıfırlanmaz; yoksa gerçek kullanıcının her girişi saldırgana yeni hak verir.
+        client, _ = self._keys(username, source)
         with self._lock:
             self._by_client.failures.pop(client, None)
-            self._by_user.failures.pop(user, None)
