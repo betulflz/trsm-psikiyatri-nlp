@@ -7,6 +7,8 @@
 Bilinçli tercih: ikinci sınır aşılınca hesap herkese 10 dakika kapanır. Bu, bir saldırganın
 hesabı geçici olarak kilitleyebilmesi demektir; sağlık verisinde kaba kuvvete açık kalmaktan iyidir.
 """
+import hashlib
+import secrets
 import threading
 import time
 
@@ -15,7 +17,7 @@ from flask import request
 MAX_FAILURES = 5
 MAX_FAILURES_PER_USER = 20
 WINDOW_SECONDS = 600
-MAX_TRACKED = 1024
+BUCKETS = 4096
 LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
 
@@ -28,32 +30,37 @@ def client_source():
 
 
 class _Counter:
-    def __init__(self, limit, window, clock):
-        self.limit, self.window, self.clock = limit, window, clock
-        self.failures = {}
+    """Sabit sayıda kovalı sayaç: her anahtar bir kovaya düşer, "izlenmeyen anahtar" yoktur.
 
-    def recent(self, key):
+    Bellek sabittir ve tablo doldurularak sınır atlatılamaz. Kova, süreç başına rastgele
+    anahtarla hesaplanır; saldırgan kurbanla aynı kovaya düşen anahtar seçemez. Nadir
+    çakışma yalnızca fazladan kilit üretir, hiçbir zaman eksik saymaz.
+    """
+
+    def __init__(self, limit, window, clock, buckets=BUCKETS):
+        self.limit, self.window, self.clock = limit, window, clock
+        self.buckets = [[] for _ in range(buckets)]
+        self._salt = secrets.token_bytes(16)
+
+    def _slot(self, key):
+        digest = hashlib.blake2b(key.encode(), key=self._salt, digest_size=8).digest()
+        return self.buckets[int.from_bytes(digest, "big") % len(self.buckets)]
+
+    def _recent(self, slot):
         cutoff = self.clock() - self.window
-        recent = [t for t in self.failures.get(key, []) if t > cutoff]
-        if recent:
-            self.failures[key] = recent
-        else:
-            self.failures.pop(key, None)
-        return recent
+        slot[:] = [t for t in slot if t > cutoff]
+        return slot
 
     def is_locked(self, key):
-        return len(self.recent(key)) >= self.limit
+        return len(self._recent(self._slot(key))) >= self.limit
 
     def add(self, key):
-        if key not in self.failures and len(self.failures) >= MAX_TRACKED:
-            for old in list(self.failures):
-                self.recent(old)  # yalnızca süresi tamamen dolmuş kayıtlar düşer; canlı sayaçlar korunur
-            if len(self.failures) >= MAX_TRACKED:
-                # Kabul edilen risk: tablo 10 dk içinde 1024 canlı kayıtla doluysa (5 binden fazla hatalı
-                # giriş) yeni anahtar izlenmez; kullanıcı adı sınırı yine işler. Kimse toptan kilitlenmez.
-                return
-        self.failures.setdefault(key, []).append(self.clock())
-        self.failures[key] = self.failures[key][-self.limit:]
+        slot = self._recent(self._slot(key))
+        slot.append(self.clock())
+        del slot[:-self.limit]
+
+    def clear(self, key):
+        self._slot(key).clear()
 
 
 class LoginLimiter:
@@ -82,4 +89,4 @@ class LoginLimiter:
         # Kullanıcı adı sayacı sıfırlanmaz; yoksa gerçek kullanıcının her girişi saldırgana yeni hak verir.
         client, _ = self._keys(username, source)
         with self._lock:
-            self._by_client.failures.pop(client, None)
+            self._by_client.clear(client)

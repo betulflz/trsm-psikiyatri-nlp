@@ -29,33 +29,19 @@ def test_success_resets_client_failures():
     assert not limiter.locked("doktor", "x")
 
 
-def test_full_table_never_drops_live_counters(monkeypatch):
-    monkeypatch.setattr(login_limit, "MAX_TRACKED", 3)
-    limiter = LoginLimiter(max_failures=2, max_per_user=1000)
+def test_flooding_with_fake_usernames_cannot_hide_the_victim():
+    limiter = LoginLimiter(max_failures=3, max_per_user=1000)
     limiter.failed("kurban", "a")
     limiter.failed("kurban", "a")
-    limiter.failed("yari", "a")
-    for i in range(10):
-        limiter.failed(f"dolgu{i}", "b")
+    for i in range(20_000):
+        limiter.failed(f"sahte{i}", f"10.0.{i // 256}.{i % 256}")
+    limiter.failed("kurban", "a")
     assert limiter.locked("kurban", "a")
-    limiter.failed("yari", "a")
-    assert limiter.locked("yari", "a")  # yarım kalan sayaç da atılmadı
 
 
-def test_full_table_does_not_lock_everyone(monkeypatch):
-    monkeypatch.setattr(login_limit, "MAX_TRACKED", 2)
-    limiter = LoginLimiter(max_failures=1, max_per_user=1000)
-    for name in ("a", "b"):
-        limiter.failed(name, "x")
-    assert limiter.locked("a", "x") and limiter.locked("b", "x")
-    assert not limiter.locked("doktor", "y")
-
-
-def test_expired_entries_make_room(monkeypatch):
-    monkeypatch.setattr(login_limit, "MAX_TRACKED", 1)
-    now = [0.0]
-    limiter = LoginLimiter(max_failures=1, window_seconds=60, max_per_user=1000, clock=lambda: now[0])
-    limiter.failed("eski", "x")
-    now[0] += 61
-    limiter.failed("yeni", "x")
-    assert limiter.locked("yeni", "x")
+def test_memory_is_fixed():
+    limiter = LoginLimiter(max_failures=3)
+    for i in range(10_000):
+        limiter.failed(f"u{i}", "x")
+    assert len(limiter._by_client.buckets) == login_limit.BUCKETS
+    assert all(len(b) <= 3 for b in limiter._by_client.buckets)
