@@ -40,3 +40,45 @@ def test_loopback_clients_keep_full_access():
     for addr in ("127.0.0.1", "::1"):
         assert _get(client, "/api/sorgu", addr).status_code == 200
         assert _get(client, "/", addr).status_code == 200
+
+
+def _app_with_login():
+    app = Flask(__name__)
+
+    @app.get("/")
+    def index():
+        return "demo"
+
+    calls = []
+
+    def authenticate(user, password):
+        calls.append(user)
+        return (user, password) == ("doktor", "dogru")
+
+    restrict_legacy_to_loopback(app, authenticate)
+    return app.test_client(), calls
+
+
+def _basic(user, password):
+    import base64
+    return {"Authorization": "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()}
+
+
+def test_funnel_requests_from_loopback_are_treated_as_remote():
+    client = _app()
+    for header in ("Tailscale-Funnel-Request", "X-Forwarded-For"):
+        response = client.get("/", headers={header: "?1"}, environ_overrides={"REMOTE_ADDR": "127.0.0.1"})
+        assert response.status_code == 403
+
+
+def test_remote_login_with_mobile_account():
+    client, calls = _app_with_login()
+    funnel = {"Tailscale-Funnel-Request": "?1"}
+    response = client.get("/", headers=funnel)
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"].startswith("Basic")
+    assert client.get("/", headers={**funnel, **_basic("doktor", "yanlis")}).status_code == 401
+    assert client.get("/", headers={**funnel, **_basic("doktor", "dogru")}).status_code == 200
+    assert client.get("/", headers={**funnel, **_basic("doktor", "dogru")}).status_code == 200
+    assert calls == ["doktor", "doktor"]  # başarılı giriş önbellekte; şifre yeniden doğrulanmaz
+    assert _get(client, "/", "192.168.1.40").status_code == 401

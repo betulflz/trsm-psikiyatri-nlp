@@ -6,6 +6,7 @@ Sonra: http://127.0.0.1:8765
 import sys
 import json
 import os
+from contextlib import closing
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -16,11 +17,12 @@ from trsm.db import database_url, get_connection
 from trsm.model_loader import load_local_minilm
 from trsm.ollama_support import qwen_status
 from trsm.recommendation import (
+    LLM_MODEL_NAME,
     build_evidence_summary,
     compute_drug_statistics,
     generate_explanatory_note,
 )
-from trsm.qwen_symptom_labeling import compare_qwen_with_baseline
+from trsm.qwen_symptom_labeling import QWEN_LABEL_MODEL, compare_qwen_with_baseline
 from trsm.symptom_similarity import find_similar_phrases, load_symptom_index
 from trsm.symptom_categories import KATEGORILER
 from trsm.transparent_symptom_query import (
@@ -34,6 +36,7 @@ from trsm.treatment_timeline import build_patient_drug_trend, list_treatment_cha
 from trsm.mobile_api import create_mobile_blueprint
 from trsm.mobile_api.auth import load_or_create_secret
 from trsm.mobile_api.network_guard import restrict_legacy_to_loopback
+from trsm.mobile_api.users import authenticate
 from trsm.runtime_paths import runtime_data_paths
 
 PATHS = runtime_data_paths()
@@ -45,14 +48,22 @@ MIN_SIMILARITY = 0.75
 SERVER_PORT = int(os.getenv("TRSM_PORT", "8765"))
 
 app = Flask(__name__, static_folder=None)
-restrict_legacy_to_loopback(app)  # TRSM_HOST=0.0.0.0 iken eski kimliksiz uç noktalar ağa kapalı kalır
+
+
+def _demo_login(kullanici_adi, sifre):
+    with closing(get_connection(DATABASE_URL)) as conn:
+        return authenticate(conn, kullanici_adi, sifre) is not None
+
+
+# Ağdan/Funnel'dan gelen istekler eski demo uç noktalarına yalnızca Psikord hesabıyla girer.
+restrict_legacy_to_loopback(app, _demo_login)
 app.register_blueprint(create_mobile_blueprint(
     DATABASE_URL,
     load_or_create_secret(PATHS["data_dir"] / "mobile_secret.key", os.environ),
     confidence_threshold=GUVEN_ESIGI,
     status_extra=lambda: {
         "semptom_indeksi": INDEX_PATH.exists(),
-        "ollama": qwen_status("qwen2.5:3b")["kullanilabilir"],
+        "ollama": qwen_status(LLM_MODEL_NAME)["kullanilabilir"],
     },
 ))
 
@@ -196,7 +207,7 @@ def api_tedavi_gecis_istatistikleri():
 
 @app.route("/api/status")
 def api_status():
-    qwen = qwen_status("qwen2.5:3b")
+    qwen = qwen_status(LLM_MODEL_NAME)
     return jsonify({"qwen": qwen})
 
 
@@ -288,7 +299,7 @@ def api_ikinci_gorus():
     query = (body.get("sorgu") or "").strip()
     if not query:
         return jsonify({"hata": "Sorgu boş olamaz."}), 400
-    qwen = qwen_status("qwen2.5:3b")
+    qwen = qwen_status(QWEN_LABEL_MODEL)
     if not (qwen["kullanilabilir"] and qwen["model_yuklu"]):
         return jsonify({"hata": "Qwen şu an kullanılamıyor."}), 503
     classified = classify_symptom_clauses(query, model, category_seed_embeddings)
