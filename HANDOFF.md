@@ -54,16 +54,21 @@ Varsayılan davranış korunuyor: ortam değişkenleri verilmezse kod eskisi gib
   - Mobil 5 saniyede bir sorar. Fotoğraf yalnızca bellekte tutulur. İşler bir saat sonra unutulur ve sunucu yeniden başlarsa kaybolur.
 - Ölçüm: sahte, basılı, kısa bir sayfa doğrudan Ollama ile 401 sn, internetten mobil API üzerinden uçtan uca 633 sn sürdü. Metin iki denemede de birebir doğru okundu. El yazısı ölçülmedi.
 - Sunucuya gönderildi. 219 Python testi (yerel ve sunucu) ve 74 mobil test geçti.
-- **Sıradaki (KVKK planı):**
-  1. Funnel'dan gelen kimlik doğrulamasız istekleri kapatmak.
-  2. Mobilde kimlik satırlarını karartmak.
-  3. Sunucuda otomatik kimlik temizliği yapmak.
-  4. Doktor onayından sonra yalnızca anonim kaydı (rastgele kod, yaş, cinsiyet, semptom, ilaç) saklamak.
-  5. Sahte el yazısı sayfalarla ölçüm yapmak.
-  - Gerçek sayfalar etik onaydan önce yüklenmeyecek.
+- **KVKK planı uygulandı (29.10.2026, hepsi canlıda):**
+  1. **Güvenlik açığı kapandı.** Funnel'dan gelen istekler dışarıdan sayılıyor; demo sayfası ve `/api/*` yalnızca doktor/hemşire hesabıyla açılıyor. Sunucuda `TRSM_REQUIRE_LOGIN=1` var. Hatalı giriş kilidi: kullanıcı adı + adres için 5, yalnızca kullanıcı adı için 20 hata / 10 dk.
+  2. **Telefonda karartma.** `mobile/src/features/yeni-hasta/MaskeEditoru.tsx` (`react-native-view-shot`). Sunucuya yalnızca karartılmış kopya gidiyor.
+  3. **Sunucuda otomatik temizlik.** `trsm/deidentification.py`. Ham Qwen çıktısı saklanmıyor.
+  4. **Doktor onayı ve anonim kayıt.** Mobilde metin düzenleniyor, onay kutusu işaretleniyor ve `POST /api/m/kayit/anonim` çağrılıyor. Hasta `ANON-…` koduyla yazılıyor; yaş doğum yılına (1 Temmuz) yuvarlanıyor. Canlıda sahte bir sayfayla denendi: ad ve TC veritabanına girmedi.
+- **Açık kalanlar:**
+  - **İlaç sözlüğünde etken madde adları yok.** Örneğin "Sertralin" tanınmıyor (sözlükte Lustral/Misol/Laurital var). Ekleme yapılacaksa literatürle doğrulanmalı.
+  - **Etiketsiz serbest metindeki isimler yakalanmıyor.** Karartma ve onay bu yüzden zorunlu.
+  - **Yeni ANON kayıtları semptom aramasına girmiyor.** Girmesi için `build_symptom_index.py` yeniden çalıştırılmalı.
+  - **Mobil karartma ekranı gerçek telefonda henüz denenmedi.** Yalnızca jest testleri var.
+  - **Sahte el yazısı sayfalarla Qwen ölçümü yapılmadı.**
+  - **Gerçek sayfalar etik onaydan önce yüklenmeyecek.**
 
 ## Açık konular ve riskler
-1. **Funnel ile kimlik doğrulamasız erişim:**
+1. **Funnel ile kimlik doğrulamasız erişim (✅ 29.10.2026'da kapatıldı; ayrıntı AGENTS.md §4):**
    - Durum: Funnel'dan gelen istekler `127.0.0.1` gibi göründüğü için `network_guard` devre dışı kalıyor. Demo sayfası ve `/api/*` herkese açık.
    - Neden kabul edildi: Sahte veriyle bilerek kabul edildi.
    - Yapılacak: Gerçek veri gelmeden önce düzeltilmeli. Örneğin Funnel isteklerinde Tailscale'in eklediği `Tailscale-Funnel-Request` ya da `X-Forwarded-For` başlıklarına bakılabilir, ya da demo sayfasına giriş eklenebilir.
