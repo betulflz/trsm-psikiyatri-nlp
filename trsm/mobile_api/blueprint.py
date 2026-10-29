@@ -120,7 +120,7 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
         try:
             photo = request.files.get("foto")
             if photo is None:
-                current_app.logger.warning("OCR isteğinde 'foto' dosyası yok; gelen alanlar: %s", sorted(request.form))
+                current_app.logger.warning("OCR isteğinde 'foto' dosyası yok (%d form alanı, %d dosya)", len(request.form), len(request.files))
                 return _error(400, "foto_gerekli", "Bir rapor fotoğrafı seçin.")
             crop = parse_crop(request.form.get("kirp"))
             return jsonify(ocr_jobs.submit(photo.read(MAX_IMAGE_BYTES + 1), g.mobil_kullanici["id"], crop)), 202

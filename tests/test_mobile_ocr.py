@@ -28,10 +28,17 @@ def test_prepare_image_crops_before_shrinking():
         assert image.size == (500, 500)
 
 
-@pytest.mark.parametrize("raw", ['{"x":0,"y":0,"w":0.01,"h":0.5}', '{"x":0.9,"y":0,"w":0.5,"h":0.5}', '{"x":"a"}', "bozuk", '{"x":-0.1,"y":0,"w":0.5,"h":0.5}'])
+@pytest.mark.parametrize("raw", ['{"x":0,"y":0,"w":0.01,"h":0.5}', '{"x":0.9,"y":0,"w":0.5,"h":0.5}', '{"x":"a"}', "bozuk", '{"x":-0.1,"y":0,"w":0.5,"h":0.5}',
+                                 "[1,2,3,4]", '{"x":NaN,"y":0,"w":0.5,"h":0.5}', "[" * 150 + "]" * 150, '{"x":0,"y":0,"w":0.5,"h":' + "9" * 400 + "}"])
 def test_invalid_crop_is_rejected(raw):
     with pytest.raises(ocr.OcrError) as raised:
         ocr.parse_crop(raw)
+    assert raised.value.status == 400
+
+
+def test_crop_too_small_in_pixels_is_rejected():
+    with pytest.raises(ocr.OcrError) as raised:
+        ocr.prepare_image(photo((100, 100)), (0, 0, 0.05, 0.05))
     assert raised.value.status == 400
 
 

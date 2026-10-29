@@ -47,11 +47,16 @@ def parse_crop(raw):
     """Mobilden gelen ``{"x","y","w","h"}`` (0–1 oranları) kırpma alanını doğrular."""
     if raw in (None, ""):
         return None
+    if isinstance(raw, str) and len(raw) > 200:
+        raise OcrError("Kırpma alanı geçersiz.", 400)
     try:
         crop = json.loads(raw) if isinstance(raw, str) else raw
+        if not isinstance(crop, dict):
+            raise TypeError
         x, y, w, h = (float(crop[k]) for k in ("x", "y", "w", "h"))
-    except (TypeError, ValueError, KeyError):
+    except (TypeError, ValueError, KeyError, OverflowError, RecursionError):
         raise OcrError("Kırpma alanı geçersiz.", 400) from None
+    # NaN ve sonsuz değerler bu karşılaştırmalardan geçemez.
     if not (0 <= x < 1 and 0 <= y < 1 and MIN_CROP <= w and MIN_CROP <= h and x + w <= 1.001 and y + h <= 1.001):
         raise OcrError("Kırpma alanı geçersiz.", 400)
     return (x, y, min(w, 1 - x), min(h, 1 - y))
@@ -74,8 +79,11 @@ def prepare_image(data, crop=None):
             raise OcrError("Fotoğraf okunamadı. JPEG veya PNG seçin.", 400) from exc
     if crop is not None:
         x, y, w, h = crop
-        image = image.crop((round(x * image.width), round(y * image.height),
-                            round((x + w) * image.width), round((y + h) * image.height)))
+        left, top = round(x * image.width), round(y * image.height)
+        right, bottom = round((x + w) * image.width), round((y + h) * image.height)
+        if right - left < 16 or bottom - top < 16:
+            raise OcrError("Kırpma alanı çok küçük.", 400)
+        image = image.crop((left, top, right, bottom))
     image.thumbnail((MAX_SIDE, MAX_SIDE))
     output = io.BytesIO()
     image.save(output, format="JPEG", quality=90)
