@@ -6,6 +6,7 @@ Fotoğraf yalnızca bellekte tutulur ve okunduktan sonra bırakılır. Qwen'in h
 saklanmaz; kimlik bilgileri silinmiş metin tutulur (bkz. trsm.deidentification).
 """
 import io
+import json
 import os
 import queue
 import secrets
@@ -19,17 +20,20 @@ from trsm.deidentification import deidentify
 from trsm.ollama_support import get_ollama_client, think_kwargs
 
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
-MAX_SIDE = 1280
+# Görüntü kodlayıcı süresi piksel sayısıyla hızla artar (CPU'da 1280 px ≈ 15 dk, 896 px ≈ 7 dk).
+MAX_SIDE = int(os.getenv("TRSM_OCR_MAX_SIDE", "1280"))
+MIN_CROP = 0.05
 MAX_WAITING = 10
 KEEP_SECONDS = 3600
 OCR_MODEL = os.getenv("TRSM_OCR_MODEL", os.getenv("TRSM_LLM_MODEL", "qwen3.5:9b"))
 
+# Talimat belgenin türünü söylemez: "psikiyatri notu" demek, model okuyamadığında
+# ya da alakasız bir sayfada psikiyatrik metin uydurmasına yol açtı (29.10.2026).
 TALIMAT = (
-    "Bu görüntü bir psikiyatri polikliniğine ait, Türkçe el yazısıyla tutulmuş "
-    "bir muayene/takip notudur. Görüntüdeki metni, gördüğün sırayla ve satır "
-    "satır, olduğu gibi yaz. Düzeltme, özetleme veya yorum yapma; görmediğin "
-    "hiçbir şeyi ekleme. Okuyamadığın ya da emin olmadığın kelimenin yerine "
-    "[?] yaz. Yalnızca metni yaz."
+    "Görüntüdeki el yazısı veya basılı metni, gördüğün sırayla ve satır satır, "
+    "olduğu gibi yaz. Düzeltme, özetleme, tamamlama veya yorum yapma; görüntüde "
+    "olmayan hiçbir kelime ekleme. Okuyamadığın kelimenin yerine [?] yaz. "
+    "Görüntüde okunabilir metin yoksa yalnızca [OKUNAMADI] yaz. Yalnızca metni yaz."
 )
 
 
@@ -39,8 +43,22 @@ class OcrError(Exception):
         self.status = status
 
 
-def prepare_image(data):
-    """Fotoğrafı doğrular, döndürür, küçültür ve JPEG baytı olarak döner."""
+def parse_crop(raw):
+    """Mobilden gelen ``{"x","y","w","h"}`` (0–1 oranları) kırpma alanını doğrular."""
+    if raw in (None, ""):
+        return None
+    try:
+        crop = json.loads(raw) if isinstance(raw, str) else raw
+        x, y, w, h = (float(crop[k]) for k in ("x", "y", "w", "h"))
+    except (TypeError, ValueError, KeyError):
+        raise OcrError("Kırpma alanı geçersiz.", 400) from None
+    if not (0 <= x < 1 and 0 <= y < 1 and MIN_CROP <= w and MIN_CROP <= h and x + w <= 1.001 and y + h <= 1.001):
+        raise OcrError("Kırpma alanı geçersiz.", 400)
+    return (x, y, min(w, 1 - x), min(h, 1 - y))
+
+
+def prepare_image(data, crop=None):
+    """Fotoğrafı doğrular, döndürür, gerekirse kırpar, küçültür ve JPEG baytı olarak döner."""
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise OcrError("Fotoğraf boş veya 12 MB sınırını aşıyor.", 413)
     with warnings.catch_warnings():
@@ -54,6 +72,10 @@ def prepare_image(data):
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError,
                 Image.DecompressionBombWarning) as exc:
             raise OcrError("Fotoğraf okunamadı. JPEG veya PNG seçin.", 400) from exc
+    if crop is not None:
+        x, y, w, h = crop
+        image = image.crop((round(x * image.width), round(y * image.height),
+                            round((x + w) * image.width), round((y + h) * image.height)))
     image.thumbnail((MAX_SIDE, MAX_SIDE))
     output = io.BytesIO()
     image.save(output, format="JPEG", quality=90)
@@ -89,8 +111,8 @@ class OcrQueue:
         self._lock = threading.Lock()
         self._worker = None
 
-    def submit(self, data, owner_id):
-        jpeg = prepare_image(data)
+    def submit(self, data, owner_id, crop=None):
+        jpeg = prepare_image(data, crop)
         with self._lock:
             self._forget_old()
             if len(self._order) >= self._max_waiting:

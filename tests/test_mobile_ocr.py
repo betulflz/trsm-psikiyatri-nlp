@@ -22,6 +22,24 @@ def test_prepare_image_shrinks_to_jpeg():
         assert max(image.size) == ocr.MAX_SIDE
 
 
+def test_prepare_image_crops_before_shrinking():
+    jpeg = ocr.prepare_image(photo((1000, 2000)), (0.1, 0.5, 0.5, 0.25))
+    with Image.open(io.BytesIO(jpeg)) as image:
+        assert image.size == (500, 500)
+
+
+@pytest.mark.parametrize("raw", ['{"x":0,"y":0,"w":0.01,"h":0.5}', '{"x":0.9,"y":0,"w":0.5,"h":0.5}', '{"x":"a"}', "bozuk", '{"x":-0.1,"y":0,"w":0.5,"h":0.5}'])
+def test_invalid_crop_is_rejected(raw):
+    with pytest.raises(ocr.OcrError) as raised:
+        ocr.parse_crop(raw)
+    assert raised.value.status == 400
+
+
+def test_prompt_does_not_name_the_document_type():
+    assert "psikiyatri" not in ocr.TALIMAT.lower()
+    assert "[OKUNAMADI]" in ocr.TALIMAT
+
+
 @pytest.mark.parametrize("data,status", [(b"not a photo", 400), (b"", 413), (b"x" * (ocr.MAX_IMAGE_BYTES + 1), 413)])
 def test_invalid_upload(data, status):
     with pytest.raises(ocr.OcrError) as raised:
@@ -130,6 +148,14 @@ def test_endpoint_submit_then_poll(api, jobs):
     jobs.run_pending()
     assert api.get(f"/api/m/rapor/ocr/{job_id}", headers=headers()).json["metin"] == "Rapor"
     assert api.get(f"/api/m/rapor/ocr/{job_id}", headers=headers(3)).status_code == 404
+
+
+def test_endpoint_accepts_crop(api, jobs):
+    response = api.post("/api/m/rapor/ocr", headers=headers(),
+                        data={"foto": (io.BytesIO(photo()), "x.png"), "kirp": '{"x":0,"y":0,"w":0.5,"h":0.5}'})
+    assert response.status_code == 202
+    bad = api.post("/api/m/rapor/ocr", headers=headers(), data={"foto": (io.BytesIO(photo()), "x.png"), "kirp": "bozuk"})
+    assert bad.status_code == 400
 
 
 def test_request_size_limit(api):

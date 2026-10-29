@@ -3,13 +3,13 @@ from contextlib import closing
 from datetime import date
 from functools import wraps
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from trsm.db import create_schema, get_connection
 from trsm.mobile_api import queries
 from trsm.mobile_api.anonymous_record import MAX_ISTEK_BAYT, RecordError, save_anonymous_record
-from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
+from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue, parse_crop
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
 from trsm.mobile_api.login_limit import LoginLimiter, client_source
 from trsm.mobile_api.users import authenticate, get_user, list_users
@@ -120,11 +120,15 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
         try:
             photo = request.files.get("foto")
             if photo is None:
+                current_app.logger.warning("OCR isteğinde 'foto' dosyası yok; gelen alanlar: %s", sorted(request.form))
                 return _error(400, "foto_gerekli", "Bir rapor fotoğrafı seçin.")
-            return jsonify(ocr_jobs.submit(photo.read(MAX_IMAGE_BYTES + 1), g.mobil_kullanici["id"])), 202
+            crop = parse_crop(request.form.get("kirp"))
+            return jsonify(ocr_jobs.submit(photo.read(MAX_IMAGE_BYTES + 1), g.mobil_kullanici["id"], crop)), 202
         except RequestEntityTooLarge:
             return _error(413, "foto_buyuk", "Fotoğraf en fazla 12 MB olabilir.")
         except OcrError as exc:
+            # Yalnızca neden yazılır; fotoğraf içeriği ve dosya adı kayda girmez.
+            current_app.logger.warning("OCR isteği reddedildi (%s): %s", exc.status, exc)
             return _error(exc.status, "ocr_hatasi", str(exc))
 
     @bp.post("/kayit/anonim")
