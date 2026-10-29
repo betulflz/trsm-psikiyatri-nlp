@@ -2,9 +2,9 @@ import { File } from 'expo-file-system';
 import type { ApiClient } from '@/api/client';
 import { ApiError } from '@/api/errors';
 
-export type ReportOcr = { metin: string; motor: string };
+export type ReportOcr = { metin: string; motor: string; temizlenen?: Record<string, number> };
 export type PageOcr = { status: 'loading' | 'done' | 'error'; result?: ReportOcr; error?: string; progress?: string };
-type OcrJob = { is_id: string; durum: 'sirada' | 'okunuyor' | 'bitti' | 'hata'; motor: string; sira?: number; gecen_sn?: number; metin?: string; hata?: string };
+type OcrJob = { is_id: string; durum: 'sirada' | 'okunuyor' | 'bitti' | 'hata'; motor: string; sira?: number; gecen_sn?: number; metin?: string; hata?: string; temizlenen?: Record<string, number> };
 
 const POLL_MS = 5_000;
 const MAX_WAIT_MS = 30 * 60_000;
@@ -50,5 +50,5 @@ export async function readReport(
     job = await pollOnce(client, job, wait);
   }
   if (job.durum === 'hata') throw new Error(job.hata || 'Rapor okunamadı.');
-  return { metin: job.metin ?? '', motor: job.motor };
+  return { metin: job.metin ?? '', motor: job.motor, temizlenen: job.temizlenen ?? {} };
 }

@@ -12,8 +12,11 @@ import { validateKimlik, type KimlikForm } from './dogrulama';
 import { KimlikAdimi } from './KimlikAdimi';
 import { RaporAdimi } from './RaporAdimi';
 import { deleteDraft, saveDraft } from './taslak';
+import { ageOn } from './maske';
 import type { PageOcr } from './ocr';
 import { readReport } from './ocr';
+
+type AnonymousResult = { kod: string; ziyaret_sayisi: number; ilaclar: string[]; semptom_sayisi: number };
 
 const EMPTY: KimlikForm = { adSoyad: '', cinsiyet: null, dogumTarihi: null, tcKimlik: '' };
 
@@ -30,6 +33,36 @@ export function YeniHastaEkrani() {
   const [ocr, setOcr] = useState<Record<string, PageOcr>>({});
   const [reading, setReading] = useState(false);
   const readingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState<AnonymousResult | null>(null);
+  const submitBlocker = !form.dogumTarihi
+    ? 'Anonim kayıt için 1. adımda doğum tarihi gerekli (sunucuya yalnızca yaş gider).'
+    : !form.cinsiyet
+      ? 'Anonim kayıt için 1. adımda cinsiyet seçin.'
+      : null;
+
+  function editText(uri: string, metin: string) {
+    setOcr((old) => (old[uri]?.result ? { ...old, [uri]: { ...old[uri], result: { ...old[uri].result!, metin } } } : old));
+  }
+
+  async function submitAnonymous() {
+    if (submitBlocker || !form.dogumTarihi || !form.cinsiyet) return;
+    setSubmitting(true);
+    try {
+      const result = await client.post<AnonymousResult>('/api/m/kayit/anonim', {
+        yas: ageOn(form.dogumTarihi, new Date()),
+        cinsiyet: form.cinsiyet === 'Kadın' ? 'K' : 'E',
+        sayfalar: pages.map((uri) => ocr[uri]?.result?.metin ?? ''),
+        kimlik_onayi: true,
+      });
+      setSaved(result);
+      setAdim('bitti');
+    } catch (error) {
+      Alert.alert('Gönderilemedi', error instanceof Error ? error.message : 'Anonim kayıt sunucuya yazılamadı.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function readPages(uris: string[]) {
     if (readingRef.current) return;
@@ -66,6 +99,7 @@ export function YeniHastaEkrani() {
   }
 
   async function save() {
+    setSaved(null);
     setSaving(true);
     try {
       await saveDraft(form, pages, ownerId, pages.map((uri) => ocr[uri]?.result ?? null));
@@ -82,6 +116,7 @@ export function YeniHastaEkrani() {
     setForm(EMPTY);
     setPages([]);
     setOcr({});
+    setSaved(null);
     setErrors({});
     setAdim(1);
   }
@@ -91,7 +126,7 @@ export function YeniHastaEkrani() {
       <View style={{ gap: 4 }}>
         <Text variant="title">Yeni dosya</Text>
         <Text variant="bodySmall" color="inkMuted">
-          {adim === 1 ? 'Adım 1/2 · Kimlik bilgileri' : adim === 2 ? 'Adım 2/2 · Rapor sayfaları' : 'Taslak kaydedildi'}
+          {adim === 1 ? 'Adım 1/2 · Kimlik bilgileri (cihazda kalır)' : adim === 2 ? 'Adım 2/2 · Rapor sayfaları' : saved ? 'Anonim kayıt sunucuya eklendi' : 'Taslak kaydedildi'}
         </Text>
       </View>
 
@@ -109,10 +144,35 @@ export function YeniHastaEkrani() {
       )}
       {adim === 2 && (
         <Animated.View entering={FadeInDown.duration(350)}>
-          <RaporAdimi pages={pages} onChange={setPages} onBack={() => setAdim(1)} onSave={save} saving={saving} ocr={ocr} reading={reading} onRead={readPages} />
+          <RaporAdimi
+            pages={pages}
+            onChange={setPages}
+            onBack={() => setAdim(1)}
+            onSave={save}
+            saving={saving}
+            ocr={ocr}
+            reading={reading}
+            onRead={readPages}
+            onEditText={editText}
+            onSubmit={submitAnonymous}
+            submitting={submitting}
+            submitBlocker={submitBlocker}
+          />
         </Animated.View>
       )}
-      {adim === 'bitti' && (
+      {adim === 'bitti' && saved && (
+        <View style={{ gap: 18, paddingVertical: 20 }}>
+          <Stamp title={saved.kod} subtitle="ANONİM KAYIT OLUŞTURULDU" />
+          <Text variant="bodySmall" color="inkMuted" style={{ textAlign: 'center' }}>
+            {`${saved.ziyaret_sayisi} sayfa, ${saved.semptom_sayisi} semptom ifadesi${saved.ilaclar.length ? `, ilaçlar: ${saved.ilaclar.join(', ')}` : ''}.`}
+          </Text>
+          <Text variant="bodySmall" style={{ textAlign: 'center' }}>
+            Bu kodu hastanın kendi dosyasına not edin. Sunucu kodun kime ait olduğunu bilmez.
+          </Text>
+          <Button title="Yeni dosya başlat" onPress={reset} />
+        </View>
+      )}
+      {adim === 'bitti' && !saved && (
         <View style={{ gap: 18, paddingVertical: 20 }}>
           <Stamp title="TASLAK KAYDEDİLDİ" subtitle="RAPOR SAYFALARI VE OCR SONUÇLARI" />
           <Text variant="bodySmall" color="inkMuted" style={{ textAlign: 'center' }}>

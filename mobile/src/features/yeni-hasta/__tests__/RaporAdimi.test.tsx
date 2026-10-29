@@ -17,22 +17,35 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(),
 }));
 jest.mock('../taslak', () => ({ movePage: jest.fn() }));
+jest.mock('../MaskeEditoru', () => ({
+  MaskeEditoru: ({ uri, onDone }: any) => {
+    const { Pressable, Text } = require('react-native');
+    return <Pressable onPress={() => onDone(uri.replace('.jpg', '-maskeli.jpg'))}><Text>{`maske:${uri}`}</Text></Pressable>;
+  },
+}));
 jest.mock('@/theme/ThemeProvider', () => ({ useTheme: () => ({ colors: {} }) }));
 jest.mock('@/ui', () => {
   const { Text, Pressable } = require('react-native');
-  return { Text, Button: ({ title, onPress, disabled, loading }: any) => <Pressable disabled={disabled || loading} onPress={onPress}><Text>{title}</Text></Pressable> };
+  return { Text, Button: ({ title, onPress, disabled, loading }: any) => <Pressable accessibilityState={{ disabled: !!(disabled || loading) }} disabled={disabled || loading} onPress={onPress}><Text>{title}</Text></Pressable> };
 });
 
-const props = () => ({ pages: [], onChange: jest.fn(), onBack: jest.fn(), onSave: jest.fn(), saving: false, reading: false, ocr: {}, onRead: jest.fn(async () => {}) });
+const props = () => ({
+  pages: [] as string[], onChange: jest.fn(), onBack: jest.fn(), onSave: jest.fn(), saving: false, reading: false, ocr: {},
+  onRead: jest.fn(async () => {}), onEditText: jest.fn(), onSubmit: jest.fn(), submitting: false, submitBlocker: null as string | null,
+});
+const done = { 'file:///r.jpg': { status: 'done' as const, result: { metin: 'Ad Soyad: [GİZLİ]\nSertralin 50 mg', motor: 'q', temizlenen: { ad: 1, tc: 1 } } } };
 
-it.each(['kamera', 'galeri'])('%s fotoğrafı seçildiğinde otomatik OCR başlatılır', async (source) => {
+it.each(['kamera', 'galeri'])('%s fotoğrafı önce karartılır, sunucuya yalnızca karartılmış kopya gider', async (source) => {
   const pick = source === 'kamera' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
   (pick as jest.Mock).mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///rapor.jpg' }] });
   const p = props();
   const screen = render(<RaporAdimi {...p} />);
   fireEvent.press(screen.getByText(source === 'kamera' ? 'Fotoğraf çek' : 'Galeriden'));
-  await waitFor(() => expect(p.onRead).toHaveBeenCalledWith(['file:///rapor.jpg']));
-  expect(p.onChange).toHaveBeenCalledWith(['file:///rapor.jpg']);
+  await waitFor(() => expect(screen.getByText('maske:file:///rapor.jpg')).toBeTruthy());
+  expect(p.onRead).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('maske:file:///rapor.jpg'));
+  expect(p.onChange).toHaveBeenCalledWith(['file:///rapor-maskeli.jpg']);
+  expect(p.onRead).toHaveBeenCalledWith(['file:///rapor-maskeli.jpg']);
 });
 
 it('hata görünür ve aynı sayfa yeniden okunabilir', () => {
@@ -43,9 +56,37 @@ it('hata görünür ve aynı sayfa yeniden okunabilir', () => {
   expect(p.onRead).toHaveBeenCalledWith(['file:///rapor.jpg']);
 });
 
-it('OCR sürerken taslak kaydedilemez', () => {
+it('OCR sürerken taslak kaydedilemez ve anonim kayıt görünmez', () => {
   const p = props();
   const screen = render(<RaporAdimi {...p} reading pages={['file:///rapor.jpg']} />);
-  fireEvent.press(screen.getByText('Taslağı kaydet'));
+  fireEvent.press(screen.getByText('Taslağı cihaza kaydet'));
   expect(p.onSave).not.toHaveBeenCalled();
+  expect(screen.queryByText('Anonim kaydı sunucuya gönder')).toBeNull();
+});
+
+it('okunan metin düzenlenebilir ve silinenler özeti görünür', () => {
+  const p = props();
+  const screen = render(<RaporAdimi {...p} pages={['file:///r.jpg']} ocr={done} />);
+  expect(screen.getByText('Otomatik silinenler: 1 ad, 1 TC no')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Sayfa 1 metni'), 'Sertralin 50 mg');
+  expect(p.onEditText).toHaveBeenCalledWith('file:///r.jpg', 'Sertralin 50 mg');
+});
+
+it('anonim kayıt yalnızca kimlik onayından sonra gönderilir', () => {
+  const p = props();
+  const screen = render(<RaporAdimi {...p} pages={['file:///r.jpg']} ocr={done} />);
+  fireEvent.press(screen.getByText('Anonim kaydı sunucuya gönder'));
+  expect(p.onSubmit).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('checkbox'));
+  fireEvent.press(screen.getByText('Anonim kaydı sunucuya gönder'));
+  expect(p.onSubmit).toHaveBeenCalled();
+});
+
+it('eksik bilgi varsa onaylansa da gönderilemez', () => {
+  const p = props();
+  const screen = render(<RaporAdimi {...p} pages={['file:///r.jpg']} ocr={done} submitBlocker="Doğum tarihi gerekli" />);
+  expect(screen.getByText('Doğum tarihi gerekli')).toBeTruthy();
+  fireEvent.press(screen.getByRole('checkbox'));
+  fireEvent.press(screen.getByText('Anonim kaydı sunucuya gönder'));
+  expect(p.onSubmit).not.toHaveBeenCalled();
 });

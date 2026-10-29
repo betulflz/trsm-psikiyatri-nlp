@@ -36,6 +36,15 @@ piksele indirir. Fotoğraf yalnızca bellekte tutulur, okunduktan sonra bırakı
 diske ve veri tabanına yazılmaz. Okunan metin bir saat sonra bellekten silinir.
 Taslağı kaydet fotoğrafları ve metinleri cihazda saklar.
 
+## Kimliksiz kayıt akışı (KVKK)
+
+1. **Karartma (telefonda):** Seçilen her fotoğraf önce karartma ekranında açılır. Doktor ad, TC, adres ve telefonun üzerine parmakla kutu çizer. Sunucuya yalnızca karartılmış kopya gider (`react-native-view-shot`).
+2. **Otomatik temizlik (sunucuda):** Qwen'in okuduğu metinden etiketli kimlik alanları, TC, telefon, e-posta ve hitaplı isimler silinir (`trsm/deidentification.py`). Ham çıktı saklanmaz.
+3. **Doktor onayı:** Metin düzenlenebilir. "Kimlik bilgisi kalmadı" kutusu işaretlenmeden gönderilemez.
+4. **Anonim kayıt:** `POST /api/m/kayit/anonim` yalnızca yaş, cinsiyet ve metinleri alır. Hasta `ANON-…` koduyla yazılır; kodun kime ait olduğunu sunucu bilmez. Metin kayıttan önce yeniden temizlenir.
+
+Ad, soyad, TC ve doğum tarihi yalnızca cihazdaki taslakta kalır. Yeni kayıtların semptom aramasına girmesi için sunucuda `scripts/build_symptom_index.py` yeniden çalıştırılmalıdır.
+
 ## Sorun giderme
 
 - **"Sunucuya ulaşılamıyor"**: Telefon ve bilgisayar aynı Wi-Fi'da mı? Sunucu

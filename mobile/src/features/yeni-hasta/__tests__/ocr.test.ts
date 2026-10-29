@@ -38,7 +38,7 @@ describe('readReport', () => {
     };
     const progress: string[] = [];
     const result = await readReport(client as never, 'file:///r.jpg', (p) => progress.push(p), noWait);
-    expect(result).toEqual({ metin: 'Sertralin 50 mg', motor: 'qwen3.5:9b' });
+    expect(result).toEqual({ metin: 'Sertralin 50 mg', motor: 'qwen3.5:9b', temizlenen: {} });
     expect(client.get).toHaveBeenCalledWith('/api/m/rapor/ocr/a1');
     expect(progress).toEqual(['Sırada: önünde 1 sayfa var…', 'Qwen okuyor… 1 dk 15 sn (bir sayfa birkaç dakika sürebilir)']);
   });
