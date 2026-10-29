@@ -58,6 +58,17 @@ def test_queue_order_and_result():
     assert done["durum"] == "bitti" and done["metin"] == "okunan metin"
 
 
+def test_queue_removes_identity_before_storing():
+    jobs = ocr.OcrQueue(reader=lambda jpeg: "Ad Soyad: Ayşe Örnek\nTC: 12345678901\nSertralin 50 mg", start_worker=False)
+    job = jobs.submit(photo(), owner_id=1)
+    jobs.run_pending()
+    done = jobs.status(job["is_id"], 1)
+    assert "Ayşe" not in done["metin"] and "12345678901" not in done["metin"]
+    assert "Sertralin 50 mg" in done["metin"]
+    assert done["temizlenen"] == {"ad": 1, "tc": 1}
+    assert "Ayşe" not in repr(jobs._jobs)  # ham metin bellekte de kalmaz
+
+
 def test_queue_hides_other_users_jobs():
     jobs = ocr.OcrQueue(reader=lambda jpeg: "x", start_worker=False)
     job = jobs.submit(photo(), owner_id=1)

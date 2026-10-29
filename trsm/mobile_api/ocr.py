@@ -2,7 +2,8 @@
 
 CPU sunucusunda bir sayfa dakikalar sürdüğü için okuma arka planda, sırayla
 yapılır: istek iş numarası döner, mobil sonucu bu numarayla sorar.
-Fotoğraf yalnızca bellekte tutulur ve okunduktan sonra bırakılır.
+Fotoğraf yalnızca bellekte tutulur ve okunduktan sonra bırakılır. Qwen'in ham çıktısı
+saklanmaz; kimlik bilgileri silinmiş metin tutulur (bkz. trsm.deidentification).
 """
 import io
 import os
@@ -14,6 +15,7 @@ import warnings
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from trsm.deidentification import deidentify
 from trsm.ollama_support import get_ollama_client, think_kwargs
 
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
@@ -121,8 +123,8 @@ class OcrQueue:
     def _process(self, job_id, jpeg):
         self._update(job_id, durum="okunuyor", baslangic=time.time())
         try:
-            text = self._reader(jpeg)
-            self._update(job_id, durum="bitti", metin=text)
+            cleaned = deidentify(self._reader(jpeg))
+            self._update(job_id, durum="bitti", metin=cleaned["metin"], temizlenen=cleaned["temizlenen"])
         except OcrError as exc:
             self._update(job_id, durum="hata", hata=str(exc))
         except Exception:
@@ -146,6 +148,7 @@ class OcrQueue:
             result["gecen_sn"] = int(time.time() - job["baslangic"])
         if job["durum"] == "bitti":
             result["metin"] = job["metin"]
+            result["temizlenen"] = job["temizlenen"]
         if job["durum"] == "hata":
             result["hata"] = job["hata"]
         return result
