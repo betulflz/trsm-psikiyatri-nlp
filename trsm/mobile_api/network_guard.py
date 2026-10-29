@@ -5,7 +5,7 @@ import time
 
 from flask import jsonify, request
 
-from trsm.mobile_api.login_limit import LoginLimiter, client_key
+from trsm.mobile_api.login_limit import LoginLimiter, client_source
 
 LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 MOBILE_PREFIX = "/api/m/"
@@ -40,13 +40,13 @@ def restrict_legacy_to_loopback(app, authenticate=None, limiter=None):
         now = time.time()
         if accepted.get(key, 0) > now:
             return True
-        limit_key = client_key(auth.username)
-        if limiter.locked(limit_key):
+        source = client_source()
+        if limiter.locked(auth.username, source):
             return "kilitli"
         if not authenticate(auth.username, auth.password):
-            limiter.failed(limit_key)
+            limiter.failed(auth.username, source)
             return False
-        limiter.succeeded(limit_key)
+        limiter.succeeded(auth.username, source)
         if len(accepted) >= LOGIN_CACHE_MAX:
             accepted.clear()
         accepted[key] = now + LOGIN_CACHE_SECONDS  # şifre özeti her istekte yeniden hesaplanmasın

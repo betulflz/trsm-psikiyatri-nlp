@@ -11,7 +11,7 @@ from trsm.mobile_api import queries
 from trsm.mobile_api.anonymous_record import MAX_ISTEK_BAYT, RecordError, save_anonymous_record
 from trsm.mobile_api.ocr import MAX_IMAGE_BYTES, OcrError, OcrQueue
 from trsm.mobile_api.auth import issue_token, make_serializer, read_token
-from trsm.mobile_api.login_limit import LoginLimiter, client_key
+from trsm.mobile_api.login_limit import LoginLimiter, client_source
 from trsm.mobile_api.users import authenticate, get_user, list_users
 
 CLINICAL_ROLES = ("doktor", "hemsire")
@@ -91,15 +91,15 @@ def create_mobile_blueprint(database_url, secret_key, *, confidence_threshold=90
             return _error(400, "eksik_bilgi", "Kullanıcı adı ve şifre gerekli.")
         if len(username) > 64:
             return _error(400, "eksik_bilgi", "Kullanıcı adı çok uzun.")
-        limit_key = client_key(username)
-        if limiter.locked(limit_key):
+        source = client_source()
+        if limiter.locked(username, source):
             return _error(429, "giris_kilitli", "Çok fazla hatalı giriş. 10 dakika sonra tekrar deneyin.")
         with connect() as conn:
             user = authenticate(conn, username, password)
         if user is None:
-            limiter.failed(limit_key)
+            limiter.failed(username, source)
             return _error(401, "hatali_giris", "Kullanıcı adı ya da şifre hatalı.")
-        limiter.succeeded(limit_key)
+        limiter.succeeded(username, source)
         return jsonify({"token": issue_token(serializer, user["id"]), "kullanici": _public(user)})
 
     @bp.get("/ben")

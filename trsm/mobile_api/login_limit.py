@@ -1,7 +1,8 @@
 """Hatalı giriş sınırı: kaba kuvvetle şifre denemeyi yavaşlatır.
 
-Anahtar kullanıcı adı + istemci adresidir; başka biri yanlış şifre deneyerek
-doktorun kendi cihazından girişini kilitleyemez.
+İki sınır birlikte uygulanır:
+- kullanıcı adı + istemci adresi: 10 dakikada 5 hata (başkası doktoru kolayca kilitleyemez),
+- yalnızca kullanıcı adı: 10 dakikada 20 hata (adres değiştirerek sınırsız deneme yapılamaz).
 """
 import threading
 import time
@@ -9,48 +10,69 @@ import time
 from flask import request
 
 MAX_FAILURES = 5
+MAX_FAILURES_PER_USER = 20
 WINDOW_SECONDS = 600
 MAX_TRACKED = 1024
+LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
 
-def client_key(username):
-    """Funnel isteği 127.0.0.1'den iletir; gerçek adres X-Forwarded-For'un son (proxy'nin eklediği) değeridir."""
+def client_source():
+    """X-Forwarded-For yalnızca istek yerel proxy'den (Tailscale) geldiyse ve son, proxy'nin eklediği değer alınır."""
     forwarded = request.headers.get("X-Forwarded-For", "")
-    source = forwarded.split(",")[-1].strip() if forwarded else (request.remote_addr or "")
-    return f"{username[:64]}|{source[:64]}"
+    if forwarded and request.remote_addr in LOOPBACK:
+        return forwarded.split(",")[-1].strip()[:64]
+    return request.remote_addr or ""
+
+
+class _Counter:
+    def __init__(self, limit, window, clock):
+        self.limit, self.window, self.clock = limit, window, clock
+        self.failures = {}
+
+    def recent(self, key):
+        cutoff = self.clock() - self.window
+        recent = [t for t in self.failures.get(key, []) if t > cutoff]
+        if recent:
+            self.failures[key] = recent
+        else:
+            self.failures.pop(key, None)
+        return recent
+
+    def add(self, key):
+        if key not in self.failures and len(self.failures) >= MAX_TRACKED:
+            for old in list(self.failures):
+                if len(self.recent(old)) < self.limit:
+                    self.failures.pop(old, None)  # kilitli kayıtlar hiçbir zaman atılmaz
+            if len(self.failures) >= MAX_TRACKED:
+                return  # tablo kilitli kayıtlarla dolu; kullanıcı adı sınırı yine işler
+        self.failures.setdefault(key, []).append(self.clock())
+        self.failures[key] = self.failures[key][-self.limit:]
 
 
 class LoginLimiter:
-    def __init__(self, max_failures=MAX_FAILURES, window_seconds=WINDOW_SECONDS, clock=time.time):
-        self._max = max_failures
-        self._window = window_seconds
-        self._clock = clock
-        self._failures = {}
+    def __init__(self, max_failures=MAX_FAILURES, window_seconds=WINDOW_SECONDS, clock=time.time,
+                 max_per_user=MAX_FAILURES_PER_USER):
+        self._by_client = _Counter(max_failures, window_seconds, clock)
+        self._by_user = _Counter(max_per_user, window_seconds, clock)
         self._lock = threading.Lock()
 
-    def _recent(self, key):
-        limit = self._clock() - self._window
-        recent = [t for t in self._failures.get(key, []) if t > limit]
-        if recent:
-            self._failures[key] = recent
-        else:
-            self._failures.pop(key, None)
-        return recent
+    @staticmethod
+    def _keys(username, source):
+        return f"{username[:64]}|{source}", username[:64]
 
-    def locked(self, key):
+    def locked(self, username, source=""):
+        client, user = self._keys(username, source)
         with self._lock:
-            return len(self._recent(key)) >= self._max
+            return (len(self._by_client.recent(client)) >= self._by_client.limit
+                    or len(self._by_user.recent(user)) >= self._by_user.limit)
 
-    def failed(self, key):
+    def failed(self, username, source=""):
+        client, user = self._keys(username, source)
         with self._lock:
-            if len(self._failures) >= MAX_TRACKED:
-                for old in list(self._failures):
-                    self._recent(old)
-                if len(self._failures) >= MAX_TRACKED:
-                    self._failures.clear()
-            self._failures.setdefault(key, []).append(self._clock())
-            self._failures[key] = self._failures[key][-self._max:]
+            self._by_client.add(client)
+            self._by_user.add(user)
 
-    def succeeded(self, key):
+    def succeeded(self, username, source=""):
+        client, _ = self._keys(username, source)
         with self._lock:
-            self._failures.pop(key, None)
+            self._by_client.failures.pop(client, None)
