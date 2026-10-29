@@ -3,6 +3,9 @@
 İki sınır birlikte uygulanır:
 - kullanıcı adı + istemci adresi: 10 dakikada 5 hata (başkası doktoru kolayca kilitleyemez),
 - yalnızca kullanıcı adı: 10 dakikada 20 hata (adres değiştirerek sınırsız deneme yapılamaz).
+
+Bilinçli tercih: ikinci sınır aşılınca hesap herkese 10 dakika kapanır. Bu, bir saldırganın
+hesabı geçici olarak kilitleyebilmesi demektir; sağlık verisinde kaba kuvvete açık kalmaktan iyidir.
 """
 import threading
 import time
@@ -43,8 +46,8 @@ class _Counter:
             for old in list(self.failures):
                 if len(self.recent(old)) < self.limit:
                     self.failures.pop(old, None)  # kilitli kayıtlar hiçbir zaman atılmaz
-            if len(self.failures) >= MAX_TRACKED:
-                return  # tablo kilitli kayıtlarla dolu; kullanıcı adı sınırı yine işler
+            if len(self.failures) >= MAX_TRACKED:  # hepsi kilitli: en eskiyi at, yeni deneme yine sayılsın
+                self.failures.pop(min(self.failures, key=lambda k: self.failures[k][-1]), None)
         self.failures.setdefault(key, []).append(self.clock())
         self.failures[key] = self.failures[key][-self.limit:]
 
@@ -73,6 +76,7 @@ class LoginLimiter:
             self._by_user.add(user)
 
     def succeeded(self, username, source=""):
-        client, _ = self._keys(username, source)
+        client, user = self._keys(username, source)
         with self._lock:
             self._by_client.failures.pop(client, None)
+            self._by_user.failures.pop(user, None)
