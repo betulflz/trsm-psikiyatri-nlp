@@ -12,8 +12,22 @@ def ollama_host():
     return os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).rstrip("/")
 
 
-def get_ollama_client(timeout=60):
+def think_kwargs():
+    """``TRSM_LLM_THINK=false`` turns off thinking for models such as qwen3.5.
+
+    Thinking models otherwise spend most of a slow CPU server's time on hidden
+    reasoning or return empty content. Unset keeps the previous behaviour.
+    """
+    value = os.getenv("TRSM_LLM_THINK", "").strip().lower()
+    if value in {"0", "false", "no", "hayir"}:
+        return {"think": False}
+    return {}
+
+
+def get_ollama_client(timeout=None):
     """Return a configured client or ``None`` when its Python package is absent."""
+    if timeout is None:
+        timeout = float(os.getenv("TRSM_OLLAMA_TIMEOUT", "60"))
     try:
         from ollama import Client
     except ImportError:

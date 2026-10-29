@@ -2,7 +2,7 @@ import os
 import re
 import json
 
-from .ollama_support import get_ollama_client
+from .ollama_support import get_ollama_client, think_kwargs
 
 
 LLM_MODEL_NAME = os.getenv("TRSM_LLM_MODEL", "qwen2.5:3b")
@@ -67,7 +67,9 @@ def generate_summary(query_text, statistics, client=None, demographic_context=No
     if client is None:
         return VERI_YOK_MESAJI
 
-    response = client.chat(model=LLM_MODEL_NAME, messages=[{"role": "user", "content": prompt}])
+    response = client.chat(
+        model=LLM_MODEL_NAME, messages=[{"role": "user", "content": prompt}], **think_kwargs()
+    )
     return response["message"]["content"]
 
 
@@ -197,6 +199,7 @@ def generate_explanatory_note(evidence, client=None, return_source=False):
                 "additionalProperties": False,
             },
             options={"temperature": 0},
+            **think_kwargs(),
         )
         payload = json.loads(response["message"]["content"])
         note = payload["note"].strip()

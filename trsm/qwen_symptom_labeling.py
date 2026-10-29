@@ -9,7 +9,7 @@ import json
 import os
 
 from .symptom_categories import KATEGORILER
-from .ollama_support import get_ollama_client
+from .ollama_support import get_ollama_client, think_kwargs
 
 
 QWEN_LABEL_MODEL = os.getenv("TRSM_QWEN_LABEL_MODEL", "qwen2.5:3b")
@@ -66,6 +66,7 @@ def label_phrase_with_qwen(phrase, client=None):
                 "additionalProperties": False,
             },
             options={"temperature": 0},
+            **think_kwargs(),
         )
         payload = json.loads(response["message"]["content"])
         labels = payload["kategoriler"]

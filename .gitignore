@@ -38,3 +38,6 @@ yedekler/
 
 # Deneme çıktıları hasta verisi içerir
 spikes/**/cikti/
+
+# Sunucu şifreleri ve erişim bilgileri (paylaşılmaz)
+AGENTS.md
