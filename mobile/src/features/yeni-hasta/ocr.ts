@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 import type { ApiClient } from '@/api/client';
 import { ApiError } from '@/api/errors';
+import type { CropFraction } from './maske';
 
 export type ReportOcr = { metin: string; motor: string; temizlenen?: Record<string, number> };
 export type PageOcr = { status: 'loading' | 'done' | 'error'; result?: ReportOcr; error?: string; progress?: string };
@@ -9,10 +10,16 @@ type OcrJob = { is_id: string; durum: 'sirada' | 'okunuyor' | 'bitti' | 'hata'; 
 const POLL_MS = 5_000;
 const MAX_WAIT_MS = 30 * 60_000;
 
-export function createReportUpload(uri: string): FormData {
+/** view-shot bazı sürümlerde yolu "file://" öneki olmadan döner; expo-file-system önek ister. */
+export function toFileUri(uri: string): string {
+  return uri.startsWith('/') ? `file://${uri}` : uri;
+}
+
+export function createReportUpload(uri: string, crop?: CropFraction | null): FormData {
   const body = new FormData();
   // Expo fetch URI nesnesi değil, bytes() sağlayan bir File bekler.
-  body.append('foto', new File(uri));
+  body.append('foto', new File(toFileUri(uri)));
+  if (crop) body.append('kirp', JSON.stringify(crop));
   return body;
 }
 
@@ -40,8 +47,9 @@ export async function readReport(
   uri: string,
   onProgress: (text: string) => void,
   wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  crop?: CropFraction | null,
 ): Promise<ReportOcr> {
-  let job = await client.upload<OcrJob>('/api/m/rapor/ocr', createReportUpload(uri));
+  let job = await client.upload<OcrJob>('/api/m/rapor/ocr', createReportUpload(uri, crop));
   const started = Date.now();
   while (job.durum === 'sirada' || job.durum === 'okunuyor') {
     onProgress(describeJob(job));

@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Psikord Sistem Haritası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Düzen: üstte canlı sistem şeması + yanında açıklama paneli; altta yolculuk oynatıcısı, katmanlar, süre, KVKK, sözlük. */
+:root {
+  --bg: #F2F4F3;
+  --surface: #FFFFFF;
+  --ink: #16201E;
+  --muted: #5B6966;
+  --line: #D5DDDA;
+  --accent: #D9822B;      /* hareket eden istek ("paket") */
+  --accent-soft: #FBE9D6;
+  --server: #1F6F66;      /* Oracle sunucusu */
+  --server-soft: #DCEEEA;
+  --edge: #9FB1AC;
+  --danger: #C2413B;
+  --ok: #2E8B57;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1514; --surface: #172120; --ink: #E6EEEC; --muted: #93A5A1; --line: #273533;
+    --accent: #F0A04B; --accent-soft: #3A2A18; --server: #5FC2B5; --server-soft: #15302C;
+    --edge: #4C625E; --danger: #EF6F68; --ok: #5CC28A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1514; --surface: #172120; --ink: #E6EEEC; --muted: #93A5A1; --line: #273533;
+  --accent: #F0A04B; --accent-soft: #3A2A18; --server: #5FC2B5; --server-soft: #15302C;
+  --edge: #4C625E; --danger: #EF6F68; --ok: #5CC28A; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; }
+.lede { max-width: 62ch; color: var(--muted); font-size: 1.08rem; }
+.eyebrow { font: 500 0.75rem/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--server); }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+code { background: var(--server-soft); color: var(--ink); padding: 1px 6px; border-radius: 4px; }
+section { display: grid; gap: 20px; }
+.head { display: grid; gap: 10px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Üst bilgi */
+.hero { display: grid; gap: 18px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.fact { border-top: 2px solid var(--line); padding-top: 10px; display: grid; gap: 2px; }
+.fact b { font-family: var(--f-display); font-size: 1.05rem; }
+.fact span { color: var(--muted); font-size: 0.92rem; }
+
+/* Şema + panel */
+.mapgrid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .mapgrid { grid-template-columns: 1fr; } }
+.mapbox { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+svg.map { display: block; width: 100%; min-width: 640px; height: auto; }
+.node { cursor: pointer; }
+.node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; transition: stroke .2s, fill .2s; }
+.node .t { font: 700 15px var(--f-display); fill: var(--ink); }
+.node .s { font: 400 11.5px var(--f-mono); fill: var(--muted); }
+.node.in-server rect { fill: var(--server-soft); stroke: color-mix(in srgb, var(--server) 35%, transparent); }
+.node:hover rect, .node.sel rect { stroke: var(--server); stroke-width: 2.5; }
+.node.lit rect { stroke: var(--accent); stroke-width: 3; fill: var(--accent-soft); }
+.edge { fill: none; stroke: var(--edge); stroke-width: 2; }
+.edge.lit { stroke: var(--accent); stroke-width: 3.5; }
+.edge.secure { stroke-dasharray: 2 0; }
+.serverbox { fill: none; stroke: var(--server); stroke-width: 2; stroke-dasharray: 7 6; }
+.serverlbl { font: 700 13px var(--f-mono); fill: var(--server); letter-spacing: .06em; }
+.portlbl { font: 500 11px var(--f-mono); fill: var(--muted); }
+.door { fill: var(--ok); }
+.wall { fill: var(--danger); }
+.packet { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 12px; min-width: 0; }
+.panel .tag { justify-self: start; font: 500 .72rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: var(--server-soft); color: var(--server); }
+.panel dl { margin: 0; display: grid; gap: 10px; }
+.panel dt { font: 500 .72rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.panel dd { margin: 2px 0 0; }
+.panel .cmd { font-family: var(--f-mono); font-size: .82rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.hint { color: var(--muted); font-size: .92rem; }
+
+/* Yolculuk oynatıcısı */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 99px; font-weight: 500; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.player { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
+@media (max-width: 900px) { .player { grid-template-columns: 1fr; } }
+.stepcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.stepnum { font: 500 .8rem var(--f-mono); color: var(--accent); letter-spacing: .08em; }
+.steptext { font-size: 1.02rem; }
+.steptext .where { display: block; margin-top: 8px; color: var(--muted); font-size: .9rem; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--bg); padding: 8px 14px; border-radius: 10px; font-weight: 600; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #1b1006; }
+.btn:disabled { opacity: .4; cursor: default; }
+.dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.dot { width: 26px; height: 6px; border-radius: 3px; background: var(--line); border: 0; padding: 0; }
+.dot.on { background: var(--accent); }
+.steplist { margin: 0; padding-left: 22px; display: grid; gap: 6px; color: var(--muted); font-size: .92rem; }
+.steplist li.on { color: var(--ink); font-weight: 600; }
+.steplist li { cursor: pointer; }
+
+/* Katmanlar */
+.layers { display: grid; gap: 6px; }
+.layer { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-align: left; padding: 12px 16px; display: grid; grid-template-columns: 170px minmax(0,1fr); gap: 4px 16px; align-items: baseline; width: 100%; }
+.layer b { font-family: var(--f-display); }
+.layer .what { color: var(--muted); }
+.layer .more { grid-column: 1 / -1; color: var(--ink); font-size: .94rem; }
+.layer[aria-expanded="true"] { border-color: var(--server); }
+@media (max-width: 600px) { .layer { grid-template-columns: 1fr; } }
+.layer:nth-child(1) { margin-inline: 0; }
+.layer:nth-child(2) { margin-inline: 2%; width: 96%; }
+.layer:nth-child(3) { margin-inline: 4%; width: 92%; }
+.layer:nth-child(4) { margin-inline: 6%; width: 88%; }
+.layer:nth-child(5) { margin-inline: 8%; width: 84%; }
+
+/* Süre grafiği */
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.chart text { font-family: var(--f-mono); font-size: 12px; fill: var(--muted); }
+.chart .lbl { font-family: var(--f-body); font-size: 13px; fill: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .9rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* KVKK */
+.shield { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; counter-reset: k; }
+.shield > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 8px; align-content: start; }
+.shield .where { font: 500 .72rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--server); }
+.redact { font-family: var(--f-mono); font-size: .85rem; background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.redact s { text-decoration: none; background: var(--ink); color: var(--ink); border-radius: 2px; }
+
+/* Sözlük */
+.gloss { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.term { border-top: 2px solid var(--line); padding-top: 10px; display: grid; gap: 4px; }
+.term b { font-family: var(--f-display); font-size: 1.02rem; }
+.term span { color: var(--muted); font-size: .94rem; }
+.filter { max-width: 320px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+
+.themebtn { justify-self: start; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 6px 12px; font-size: .85rem; }
+footer { color: var(--muted); font-size: .88rem; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">TRSM · Psikord · Oracle sunucusu</span>
+    <h1>Psikord Sistem Haritası</h1>
+    <p class="lede">Telefondaki uygulamadan Frankfurt'taki sunucuya, oradan Qwen'e ve veritabanına giden yolun haritası. Şemadaki kutulara tıklayın, ardından aşağıdaki yolculuklardan birini adım adım oynatın.</p>
+    <div class="facts">
+      <div class="fact"><b>Telefon</b><span>Psikord uygulaması (Expo). Yalnızca ekran ve kamera; hesap yapmaz.</span></div>
+      <div class="fact"><b>Kapı</b><span>Tailscale Funnel. İnternetten gelen HTTPS isteğini sunucuya taşır.</span></div>
+      <div class="fact"><b>Sunucu</b><span>Oracle Always Free: 2 çekirdek, 12 GB bellek, GPU yok, Frankfurt.</span></div>
+      <div class="fact"><b>Beyin</b><span>Flask (TRSM), PostgreSQL, MiniLM ve Ollama içinde Qwen 3.5 9B.</span></div>
+    </div>
+    <button class="themebtn" id="themebtn" type="button">Tema: sistem</button>
+  </header>
+
+  <section aria-labelledby="h-map">
+    <div class="head">
+      <span class="eyebrow">Harita</span>
+      <h2 id="h-map">Parçalar ve aralarındaki yollar</h2>
+      <p class="lede">Kesikli çizgi Oracle sunucusunun sınırı, yani güvenlik duvarı. Yeşil kapı açık olan tek giriş (SSH, port 22). Kırmızı işaretler internete kapalı portlar.</p>
+    </div>
+    <div class="mapgrid">
+      <div class="mapbox">
+        <svg class="map" id="map" viewBox="0 0 1000 560" role="img" aria-label="Sistem şeması">
+          <g id="edges"></g>
+          <rect class="serverbox" x="500" y="30" width="480" height="500" rx="18"></rect>
+          <text class="serverlbl" x="520" y="58">ORACLE SUNUCUSU · FRANKFURT · UBUNTU</text>
+          <rect class="door" x="494" y="455" width="12" height="40" rx="3"></rect>
+          <text class="portlbl" x="512" y="512">22 · SSH açık</text>
+          <rect class="wall" x="494" y="140" width="12" height="12" rx="2"></rect>
+          <rect class="wall" x="494" y="330" width="12" height="12" rx="2"></rect>
+          <text class="portlbl" x="512" y="138">8765, 11434, 5434 internete kapalı</text>
+          <g id="nodes"></g>
+          <circle id="packet" class="packet" r="8" cx="-20" cy="-20"></circle>
+        </svg>
+      </div>
+      <aside class="panel" id="panel" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-trip">
+    <div class="head">
+      <span class="eyebrow">Yolculuklar</span>
+      <h2 id="h-trip">Bir isteğin izlediği yol, adım adım</h2>
+      <p class="lede">Bir senaryo seçin. Her adımda şemada ilgili parça turuncu yanar ve istek o yol boyunca ilerler.</p>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="player">
+      <div class="stepcard">
+        <span class="stepnum" id="stepnum"></span>
+        <h3 id="steptitle"></h3>
+        <p class="steptext" id="steptext"></p>
+        <div class="dots" id="dots"></div>
+        <div class="controls">
+          <button class="btn" id="prev" type="button">← Geri</button>
+          <button class="btn primary" id="next" type="button">İleri →</button>
+          <button class="btn" id="play" type="button">▶ Otomatik oynat</button>
+        </div>
+      </div>
+      <div class="stepcard">
+        <span class="eyebrow">Bu senaryonun tüm adımları</span>
+        <ol class="steplist" id="steplist"></ol>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-layers">
+    <div class="head">
+      <span class="eyebrow">Kurulum</span>
+      <h2 id="h-layers">Sunucu katman katman nasıl kuruldu</h2>
+      <p class="lede">Her katman bir alttakinin üstüne oturur. Tıklayınca o katmanda ne yapıldığı açılır.</p>
+    </div>
+    <div class="layers" id="layers"></div>
+  </section>
+
+  <section aria-labelledby="h-time">
+    <div class="head">
+      <span class="eyebrow">Ölçüm · 29.10.2026</span>
+      <h2 id="h-time">Bir rapor sayfasını okumak neden dakikalar sürüyor</h2>
+      <p class="lede">Ekran kartı olmayan 2 çekirdekte en uzun iş, fotoğrafın Qwen'in anlayacağı parçalara çevrilmesi. Bu süre fotoğrafın piksel sayısıyla hızla büyüyor. Fotoğrafı 1280'den 896 piksele indirmek süreyi yarıya düşürdü; yazılı alanı kırpmak daha da kısaltır.</p>
+    </div>
+    <div class="chart">
+      <svg viewBox="0 0 760 190" aria-label="OCR süre karşılaştırması">
+        <g id="chart"></g>
+      </svg>
+      <div class="legend">
+        <span><i style="background: var(--server)"></i>Fotoğrafı parçalara çevirme ve dil modeline aktarma</span>
+        <span><i style="background: var(--accent)"></i>Metni yazma</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-kvkk">
+    <div class="head">
+      <span class="eyebrow">KVKK</span>
+      <h2 id="h-kvkk">Hastanın kimliği üç katmanda siliniyor</h2>
+      <p class="lede">Sunucu hastanın kim olduğunu hiç öğrenmez. Veritabanında yalnızca rastgele bir kod, yaş, cinsiyet, semptomlar ve ilaçlar durur.</p>
+    </div>
+    <div class="shield">
+      <div>
+        <span class="where">1 · Telefonda</span>
+        <h3>Kırp ve karart</h3>
+        <p>Doktor yazılı alanı seçer, ad ve TC'nin üstüne parmağıyla kutu çizer. Orijinal fotoğraf telefondan çıkmaz.</p>
+        <p class="redact">Ad Soyad: <s>Ayşe Örnek</s><br>TC: <s>12345678901</s></p>
+      </div>
+      <div>
+        <span class="where">2 · Sunucuda</span>
+        <h3>Otomatik temizlik</h3>
+        <p>Qwen'in okuduğu metinden TC, telefon, e-posta, "Ad Soyad:" gibi alanlar silinir. Ham metin saklanmaz.</p>
+        <p class="redact">Ad Soyad: [GİZLİ] TC: [GİZLİ]<br>Tedavi: Lustral 50 mg 1x1</p>
+      </div>
+      <div>
+        <span class="where">3 · Doktorun onayı</span>
+        <h3>Gözle kontrol</h3>
+        <p>Kurallar her ismi yakalayamaz. Doktor metni okur, düzeltir ve "kimlik kalmadı" kutusunu işaretlemeden kayıt gönderilemez.</p>
+        <p class="redact">ANON-1095743F8F76 · 34 yaş · Kadın</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-gloss">
+    <div class="head">
+      <span class="eyebrow">Sözlük</span>
+      <h2 id="h-gloss">Bu projede geçen terimler</h2>
+    </div>
+    <label class="hint" for="filter">Terim ara</label>
+    <input class="filter" id="filter" type="search" placeholder="ör. port, token, Funnel">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <footer>Bu sayfa projenin kendi kurulumunu anlatır; şifre ve anahtar içermez. Ayrıntılı kayıtlar: <code>AGENTS.md</code> ve <code>HANDOFF.md</code>.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  // ---------- Tema düğmesi ----------
+  var themes = ["sistem", "acik", "koyu"], ti = 0;
+  var themeBtn = document.getElementById("themebtn");
+  function applyTheme() {
+    var t = themes[ti];
+    if (t === "sistem") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", t === "acik" ? "light" : "dark");
+    themeBtn.textContent = "Tema: " + ({ sistem: "sistem", acik: "açık", koyu: "koyu" })[t];
+  }
+  themeBtn.addEventListener("click", function () { ti = (ti + 1) % 3; applyTheme(); });
+
+  // ---------- Parçalar ----------
+  var NODES = {
+    tel: { x: 30, y: 110, w: 190, h: 70, t: "Telefon", s: "Psikord · Expo Go", tag: "Senin cebinde",
+      what: "Doktorun kullandığı uygulama. Giriş ekranı, hasta listesi, fotoğraf çekme, karartma ve onay ekranları burada. Hesap yapmaz; her şeyi sunucuya sorar.",
+      like: "Bankanın mobil uygulaması gibi: ekran sende, kasa bankada.",
+      tech: "React Native + Expo (SDK 58). Kod: mobile/ klasörü. Sunucu adresi mobile/.env içinde.",
+      cmd: "cd mobile\nnpx expo start" },
+    web: { x: 30, y: 250, w: 190, h: 70, t: "Tarayıcı", s: "demo sayfası", tag: "Hoca ve doktorlar",
+      what: "Bilgisayardan açılan demo sayfası (demo.html). Semptom sorgusu ve ilaç dağılımı grafikleri burada. Açılınca kullanıcı adı ve şifre sorar.",
+      like: "Aynı mutfağın ikinci kapısı: telefon bir kapıdan, tarayıcı öbür kapıdan girer.",
+      tech: "Flask'ın / adresi. İnternetten gelen isteğe tarayıcı giriş penceresi açılır (yalnızca doktor/hemşire hesabı).",
+      cmd: "https://trsm-sunucu.….ts.net" },
+    mac: { x: 30, y: 430, w: 190, h: 70, t: "Senin Mac'in", s: "kod · test · rsync", tag: "Geliştirme",
+      what: "Kodun asıl evi. Değişikliği burada yaparsın, testleri burada çalıştırırsın, sonra sunucuya gönderirsin. Gerçek hasta verisi yalnızca burada durur, sunucuya gitmez.",
+      like: "Atölye: eşya burada yapılır, sonra dükkâna taşınır.",
+      tech: "Git deposu, yerel PostgreSQL (Docker), testler: uv run pytest. Sunucuya SSH anahtarıyla bağlanır.",
+      cmd: "uv run pytest\nssh -i ~/.ssh/trsm-oracle.key ubuntu@…" },
+    funnel: { x: 270, y: 180, w: 190, h: 76, t: "Tailscale Funnel", s: "HTTPS kapısı", tag: "İnternet ile sunucu arası",
+      what: "İnternetteki herkesin ulaşabildiği HTTPS adresini sağlar ve gelen isteği şifreli bir tünelle sunucunun içine taşır. Tünel sunucu tarafından içeriden açıldığı için güvenlik duvarında kapı açmak gerekmedi.",
+      like: "Binanın resepsiyonu: dışarıdan gelen ziyaretçiyi alır, içerideki odaya kendisi götürür; binanın kapıları kilitli kalır.",
+      tech: "Tailscale'in sunucuları sertifikayı ve …ts.net adresini sağlar. İsteği 127.0.0.1:8765'e iletir ve 'Tailscale-Funnel-Request' başlığı ekler.",
+      cmd: "sudo tailscale funnel status" },
+    ssh: { x: 530, y: 420, w: 180, h: 76, t: "SSH girişi", s: "port 22 · anahtar", tag: "Sunucunun içi", server: true,
+      what: "Sunucuya senin terminalinden girdiğin kapı. Şifreyle girilemez; yalnızca anahtar dosyası olan bilgisayarlar girebilir. Kod da bu kapıdan (rsync ile) gönderilir.",
+      like: "Personel kapısı: müşteri resepsiyondan, sen arka kapıdan anahtarınla girersin.",
+      tech: "Kullanıcı: ubuntu. İki anahtar kayıtlı (Betül ve İlkay). rsync değişen dosyaları bu bağlantı üzerinden kopyalar.",
+      cmd: "rsync -az … ./ ubuntu@…:~/trsm/" },
+    flask: { x: 560, y: 175, w: 190, h: 86, t: "Flask · TRSM", s: "port 8765 · uygulama", tag: "Sunucunun içi", server: true,
+      what: "Projenin beyni. Girişi kontrol eder, veritabanına sorar, fotoğrafları okuma kuyruğuna koyar, Qwen'e iş verir, kimlik temizliğini yapar ve cevabı telefona döner.",
+      like: "Restoranın şefi: siparişi alır, kilere (veritabanı) ve uzman aşçıya (Qwen) iş dağıtır, tabağı hazırlar.",
+      tech: "demo_server.py, Python 3.12, uv ile çalışır. Mobil API /api/m/* (token ister), demo /api/* (giriş ister). systemd servisi: trsm.",
+      cmd: "sudo systemctl restart trsm\nsudo journalctl -u trsm -f" },
+    minilm: { x: 560, y: 300, w: 190, h: 70, t: "MiniLM", s: "Flask'ın içinde", tag: "Sunucunun içi", server: true,
+      what: "Cümleleri sayılara (vektörlere) çeviren küçük bir model. 'uykusuzluk' ile 'uyuyamıyor' gibi farklı yazılmış ama aynı anlama gelen ifadeleri eşleştirir. Hızlıdır, saniyeler sürer.",
+      like: "Kütüphanedeki konu kataloğu: kelimesi farklı olsa da aynı konudaki kitapları yan yana dizer.",
+      tech: "paraphrase-multilingual-MiniLM-L12-v2, çevrimdışı yüklenir. Semptom indeksi: data/symptom_index.npz.",
+      cmd: "scripts/build_symptom_index.py" },
+    ollama: { x: 790, y: 175, w: 170, h: 86, t: "Ollama · Qwen 9B", s: "port 11434", tag: "Sunucunun içi", server: true,
+      what: "Büyük dil modeli. İki iş yapar: fotoğraftaki yazıyı okur (OCR) ve istenirse ilaç dağılımı için açıklama notu yazar. Ekran kartı olmadığı için yavaştır: bir sayfa ~8 dakika.",
+      like: "Uzman çevirmen: çok iyi okur ama tek kişidir ve yavaştır; işler sıraya girer.",
+      tech: "qwen3.5:9b, ~6,2 GB bellekte sürekli hazır. Düşünme modu kapalı (TRSM_LLM_THINK=false). systemd servisi: ollama.",
+      cmd: "ollama ps\nsudo systemctl status ollama" },
+    db: { x: 790, y: 300, w: 170, h: 86, t: "PostgreSQL", s: "Docker · port 5434", tag: "Sunucunun içi", server: true,
+      what: "Hastalar, ziyaretler, semptomlar, ilaçlar ve kullanıcı hesapları burada. Sunucuda yalnızca 300 sahte hasta ve anonim ANON kayıtları var.",
+      like: "Arşiv dolabı: şef (Flask) dosya ister, dolap verir.",
+      tech: "postgres:16, Docker konteyneri (trsm-db-1). Yalnızca sunucunun içinden erişilir.",
+      cmd: "cd ~/trsm && sudo docker compose ps" }
+  };
+  var EDGES = {
+    "tel-funnel": ["tel", "funnel"], "web-funnel": ["web", "funnel"], "funnel-flask": ["funnel", "flask"],
+    "flask-ollama": ["flask", "ollama"], "flask-db": ["flask", "db"], "flask-minilm": ["flask", "minilm"],
+    "mac-ssh": ["mac", "ssh"], "ssh-flask": ["ssh", "flask"]
+  };
+
+  function center(n) { var d = NODES[n]; return { x: d.x + d.w / 2, y: d.y + d.h / 2 }; }
+  function anchor(a, b) {
+    var A = NODES[a], B = center(b), c = center(a);
+    var dx = B.x - c.x, dy = B.y - c.y;
+    var sx = Math.abs(dx) / (A.w / 2), sy = Math.abs(dy) / (A.h / 2);
+    var s = Math.max(sx, sy) || 1;
+    return { x: c.x + dx / s, y: c.y + dy / s };
+  }
+  var edgeEls = {}, nodeEls = {};
+  var gE = document.getElementById("edges"), gN = document.getElementById("nodes");
+  Object.keys(EDGES).forEach(function (id) {
+    var a = anchor(EDGES[id][0], EDGES[id][1]), b = anchor(EDGES[id][1], EDGES[id][0]);
+    var mx = (a.x + b.x) / 2;
+    var p = document.createElementNS(SVGNS, "path");
+    p.setAttribute("d", "M" + a.x + "," + a.y + " C" + mx + "," + a.y + " " + mx + "," + b.y + " " + b.x + "," + b.y);
+    p.setAttribute("class", "edge");
+    gE.appendChild(p); edgeEls[id] = p;
+  });
+  Object.keys(NODES).forEach(function (id) {
+    var d = NODES[id];
+    var g = document.createElementNS(SVGNS, "g");
+    g.setAttribute("class", "node" + (d.server ? " in-server" : ""));
+    g.setAttribute("tabindex", "0"); g.setAttribute("role", "button");
+    g.setAttribute("aria-label", d.t + " ayrıntıları");
+    var r = document.createElementNS(SVGNS, "rect");
+    r.setAttribute("x", d.x); r.setAttribute("y", d.y); r.setAttribute("width", d.w); r.setAttribute("height", d.h); r.setAttribute("rx", 12);
+    var t = document.createElementNS(SVGNS, "text");
+    t.setAttribute("class", "t"); t.setAttribute("x", d.x + 14); t.setAttribute("y", d.y + d.h / 2 - 3); t.textContent = d.t;
+    var s = document.createElementNS(SVGNS, "text");
+    s.setAttribute("class", "s"); s.setAttribute("x", d.x + 14); s.setAttribute("y", d.y + d.h / 2 + 16); s.textContent = d.s;
+    g.appendChild(r); g.appendChild(t); g.appendChild(s);
+    g.addEventListener("click", function () { showNode(id); });
+    g.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showNode(id); } });
+    gN.appendChild(g); nodeEls[id] = g;
+  });
+
+  var panel = document.getElementById("panel");
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function showNode(id) {
+    var d = NODES[id];
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.toggle("sel", k === id); });
+    panel.innerHTML = '<span class="tag">' + esc(d.tag) + '</span><h3>' + esc(d.t) + '</h3>' +
+      '<dl><div><dt>Ne yapar</dt><dd>' + esc(d.what) + '</dd></div>' +
+      '<div><dt>Benzetme</dt><dd>' + esc(d.like) + '</dd></div>' +
+      '<div><dt>Teknik</dt><dd>' + esc(d.tech) + '</dd></div>' +
+      '<div><dt>İşine yarayacak komut</dt><dd><div class="cmd">' + esc(d.cmd) + '</div></dd></div></dl>';
+  }
+  showNode("flask");
+
+  // ---------- Yolculuklar ----------
+  var TRIPS = [
+    { id: "giris", name: "Giriş yapma", steps: [
+      { n: ["tel"], t: "Doktor kullanıcı adı ve şifresini yazar", x: "Uygulama bir istek hazırlar: POST /api/m/giris. İçinde kullanıcı adı ve şifre var; HTTPS ile şifrelenmiş olarak gidecek.", w: "mobile/src/auth" },
+      { n: ["tel", "funnel"], e: "tel-funnel", t: "İstek internetten kapıya gider", x: "Telefon, Funnel adresine bağlanır. Bu adres Tailscale'in sunucularında; sertifika da onlarda. Telefonda Tailscale kurulu olması gerekmez." },
+      { n: ["funnel", "flask"], e: "funnel-flask", t: "Kapı isteği sunucunun içine taşır", x: "Funnel, isteği şifreli tünelden geçirip sunucunun içinde 127.0.0.1:8765'e, yani Flask'a bırakır. Güvenlik duvarında 8765 kapalı; istek tünelden geldiği için duvara takılmaz." },
+      { n: ["flask", "db"], e: "flask-db", t: "Flask şifreyi kontrol eder", x: "Veritabanındaki kullanıcı kaydı bulunur, şifrenin özeti karşılaştırılır. Aynı adresten 5, toplamda 20 hatalı denemede hesap 10 dakika kilitlenir.", w: "trsm/mobile_api/users.py, login_limit.py" },
+      { n: ["tel", "funnel", "flask"], e: "funnel-flask", rev: true, t: "Telefona bir token döner", x: "Token, 12 saat geçerli imzalı bir giriş kartıdır. Telefon bundan sonra her isteğe bu kartı ekler; şifreyi bir daha göndermez." }
+    ]},
+    { id: "ocr", name: "Rapor okutma (Qwen OCR)", steps: [
+      { n: ["tel"], t: "Fotoğraf çekilir, kırpılır ve karartılır", x: "Doktor yazılı alanı seçer, ad ve TC'nin üstünü kapatır. Telefon bu işlenmiş görüntünün yeni bir kopyasını üretir. Orijinal fotoğraf telefondan çıkmaz.", w: "MaskeEditoru.tsx" },
+      { n: ["tel", "funnel"], e: "tel-funnel", t: "Karartılmış kopya yola çıkar", x: "POST /api/m/rapor/ocr. Yanında kırpma alanı da gider (ör. sayfanın %10'undan %60'ına kadar)." },
+      { n: ["funnel", "flask"], e: "funnel-flask", t: "Flask fotoğrafı alır ve sıraya koyar", x: "Fotoğraf doğrulanır, seçilen alan kesilir, uzun kenarı 896 piksele indirilir. İş kuyruğa girer ve telefona hemen bir iş numarası döner (202). Fotoğraf yalnızca bellekte tutulur, diske yazılmaz.", w: "trsm/mobile_api/ocr.py" },
+      { n: ["flask", "ollama"], e: "flask-ollama", t: "Kuyruktaki işçi fotoğrafı Qwen'e verir", x: "Qwen aynı anda tek sayfa okur; diğerleri sırada bekler. Talimat belgenin türünü söylemez, okunamıyorsa [OKUNAMADI] yazmasını ister." },
+      { n: ["ollama"], t: "Qwen okur: en uzun adım", x: "Önce fotoğraf yüzlerce parçaya çevrilir; ekran kartı olmadığı için sürenin dörtte üçü burada geçer. Sonra metin satır satır yazılır. Tam sayfa ~8 dakika." },
+      { n: ["ollama", "flask"], e: "flask-ollama", rev: true, t: "Metin döner, kimlik temizlenir", x: "Flask, Qwen'in yazdığı metinden TC, telefon, ad satırı gibi bilgileri siler. Ham metin ve fotoğraf atılır; yalnızca temiz metin bir saat bellekte bekler.", w: "trsm/deidentification.py" },
+      { n: ["tel", "funnel", "flask"], e: "tel-funnel", t: "Telefon 5 saniyede bir 'bitti mi?' diye sorar", x: "Buna yoklama (polling) denir. Ekranda 'Qwen okuyor… 4 dk' gibi bir sayaç görünür. Bitince temiz metin telefona gelir." },
+      { n: ["tel"], t: "Doktor metni kontrol eder ve onaylar", x: "Hatalı kelimeleri düzeltir, 'kimlik bilgisi kalmadı' kutusunu işaretler." },
+      { n: ["tel", "funnel", "flask"], e: "funnel-flask", t: "Anonim kayıt gönderilir", x: "POST /api/m/kayit/anonim. Yalnızca yaş, cinsiyet ve metin gider. Flask metni bir kez daha temizler." },
+      { n: ["flask", "db"], e: "flask-db", t: "Veritabanına ANON kodlu kayıt yazılır", x: "Hasta ANON-xxxx koduyla eklenir; yaş doğum yılına yuvarlanır. İlaçlar sözlükle, semptom ifadeleri metinden çıkarılır. Kod telefonda gösterilir; kime ait olduğunu sunucu bilmez." }
+    ]},
+    { id: "sorgu", name: "Semptom sorgusu", steps: [
+      { n: ["web"], t: "Doktor semptom yazar", x: "Örnek: 'uykusuzluk ve mutsuzluk', 34 yaş, Kadın. Tarayıcı ilk açılışta giriş penceresi göstermişti." },
+      { n: ["web", "funnel"], e: "web-funnel", t: "İstek kapıya gider", x: "POST /api/sorgu, tarayıcının giriş bilgisiyle birlikte." },
+      { n: ["funnel", "flask"], e: "funnel-flask", t: "Flask girişi kontrol eder", x: "İstek Funnel'dan geldiği için 'dışarıdan' sayılır. Yalnızca doktor ve hemşire hesapları geçer.", w: "trsm/mobile_api/network_guard.py" },
+      { n: ["flask", "minilm"], e: "flask-minilm", t: "MiniLM benzer ifadeleri bulur", x: "Yazılan cümle sayılara çevrilir ve geçmiş kayıtlardaki benzer ifadelerle karşılaştırılır. 'uyuyamıyor', 'gece sık uyanıyor' da eşleşir. Saniyeler sürer." },
+      { n: ["flask", "db"], e: "flask-db", t: "Eşleşen ziyaretlerin ilaçları sayılır", x: "Yaş ve cinsiyete göre süzülür, hangi ilacın kaç hastada kullanıldığı hesaplanır. Bu bir tedavi önerisi değil, geçmiş kayıtların istatistiğidir." },
+      { n: ["flask", "ollama"], e: "flask-ollama", t: "İstenirse Qwen açıklama notu yazar", x: "Bu adım isteğe bağlıdır ve 1–2 dakika sürer. Qwen'e hasta metni değil, yalnızca sayısal özet gider." },
+      { n: ["web", "funnel", "flask"], e: "web-funnel", rev: true, t: "Sonuç tarayıcıya döner", x: "İlaç dağılımı grafiği ve eşleşen ziyaret sayısı ekranda görünür." }
+    ]},
+    { id: "deploy", name: "Kod güncelleme", steps: [
+      { n: ["mac"], t: "Kodu Mac'te değiştirirsin", x: "Değişikliği yaparsın ve testleri çalıştırırsın: uv run pytest. Yerelde veritabanı için Docker açık olmalı." },
+      { n: ["mac", "ssh"], e: "mac-ssh", t: "rsync dosyaları SSH kapısından gönderir", x: "Yalnızca değişen dosyalar gider. .env, veritabanı dosyaları, hasta PDF'leri ve data/ klasörü bilerek hariç tutulur." },
+      { n: ["ssh", "flask"], e: "ssh-flask", t: "Servis yeniden başlatılır", x: "sudo systemctl restart trsm. Flask ~20 saniyede yeniden açılır, MiniLM yüklenir. Bu sırada uygulama kısa süre cevap vermez." },
+      { n: ["flask"], t: "Sağlık kontrolü", x: "curl localhost:8765/api/m/saglik → {\"durum\":\"ok\"}. Sunucuda da testler çalıştırılır." }
+    ]},
+    { id: "acilis", name: "Sunucu açılırken", steps: [
+      { n: [], t: "Oracle sanal makineyi başlatır", x: "Frankfurt'taki fiziksel bir bilgisayarın içinde bize ayrılmış sanal makine (2 çekirdek, 12 GB) Ubuntu ile açılır." },
+      { n: ["db"], t: "systemd Docker'ı, Docker veritabanını açar", x: "systemd, Linux'un servis yöneticisi. Docker açılınca PostgreSQL konteyneri kendiliğinden başlar." },
+      { n: ["ollama"], t: "Ollama açılır ve Qwen'i belleğe yükler", x: "İlk yükleme ~37 saniye. Sonra model sürekli bellekte bekler (keep alive)." },
+      { n: ["flask", "minilm"], t: "TRSM servisi açılır", x: "Veritabanı ve Ollama hazır olunca Flask başlar, MiniLM'i yükler, 8765'i dinler. Çökerse systemd 5 saniye sonra yeniden açar." },
+      { n: ["funnel"], t: "Tailscale bağlanır, kapı açılır", x: "Tünel kurulur, Funnel adresi yeniden yayına girer. Telefon artık bağlanabilir." }
+    ]}
+  ];
+
+  var tabsEl = document.getElementById("tabs");
+  var trip = TRIPS[0], step = 0, timer = null;
+  TRIPS.forEach(function (tr, i) {
+    var b = document.createElement("button");
+    b.className = "tab"; b.type = "button"; b.setAttribute("role", "tab"); b.textContent = tr.name;
+    b.addEventListener("click", function () { selectTrip(i); });
+    tabsEl.appendChild(b);
+  });
+
+  function moveAlong(path, reverse) {
+    var pk = document.getElementById("packet");
+    var L = path.getTotalLength();
+    if (reduce) { var p = path.getPointAtLength(reverse ? 0 : L); pk.setAttribute("cx", p.x); pk.setAttribute("cy", p.y); return; }
+    var t0 = null, dur = 900;
+    function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur);
+      var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      var p = path.getPointAtLength((reverse ? 1 - e : e) * L);
+      pk.setAttribute("cx", p.x); pk.setAttribute("cy", p.y);
+      if (k < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function render() {
+    var s = trip.steps[step];
+    Array.prototype.forEach.call(tabsEl.children, function (b, i) { b.setAttribute("aria-selected", TRIPS[i] === trip ? "true" : "false"); });
+    document.getElementById("stepnum").textContent = "ADIM " + (step + 1) + " / " + trip.steps.length;
+    document.getElementById("steptitle").textContent = s.t;
+    document.getElementById("steptext").innerHTML = esc(s.x) + (s.w ? '<span class="where">Kodda: <code>' + esc(s.w) + "</code></span>" : "");
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.toggle("lit", s.n.indexOf(k) >= 0); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.toggle("lit", k === s.e); });
+    var pk = document.getElementById("packet");
+    if (s.e) { pk.style.display = ""; moveAlong(edgeEls[s.e], !!s.rev); }
+    else if (s.n.length) { var c = center(s.n[0]); pk.style.display = ""; pk.setAttribute("cx", c.x); pk.setAttribute("cy", NODES[s.n[0]].y); }
+    else { pk.style.display = "none"; }
+    var dots = document.getElementById("dots"); dots.innerHTML = "";
+    var list = document.getElementById("steplist"); list.innerHTML = "";
+    trip.steps.forEach(function (st, i) {
+      var d = document.createElement("button");
+      d.className = "dot" + (i <= step ? " on" : ""); d.type = "button"; d.setAttribute("aria-label", "Adım " + (i + 1));
+      d.addEventListener("click", function () { stop(); step = i; render(); });
+      dots.appendChild(d);
+      var li = document.createElement("li"); li.textContent = st.t; if (i === step) li.className = "on";
+      li.addEventListener("click", function () { stop(); step = i; render(); });
+      list.appendChild(li);
+    });
+    document.getElementById("prev").disabled = step === 0;
+    document.getElementById("next").disabled = step === trip.steps.length - 1;
+  }
+  function selectTrip(i) { stop(); trip = TRIPS[i]; step = 0; render(); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } document.getElementById("play").textContent = "▶ Otomatik oynat"; }
+  document.getElementById("prev").addEventListener("click", function () { stop(); if (step > 0) { step--; render(); } });
+  document.getElementById("next").addEventListener("click", function () { stop(); if (step < trip.steps.length - 1) { step++; render(); } });
+  document.getElementById("play").addEventListener("click", function () {
+    if (timer) { stop(); return; }
+    if (step === trip.steps.length - 1) step = 0;
+    render();
+    this.textContent = "❚❚ Durdur";
+    timer = setInterval(function () {
+      if (step >= trip.steps.length - 1) { stop(); return; }
+      step++; render();
+    }, 3600);
+  });
+  selectTrip(1);
+
+  // ---------- Katmanlar ----------
+  var LAYERS = [
+    { b: "Oracle Cloud", w: "Kiralık sanal bilgisayar", m: "Always Free hesabında Ampere ARM işlemcili bir sanal makine açıldı: 2 çekirdek, 12 GB bellek, 100 GB disk, Frankfurt. Güvenlik duvarında yalnızca SSH (22) açık. Hesapta 'Upgrade' düğmesine basılmamalı; basılırsa ücretli plana geçer." },
+    { b: "Ubuntu 24.04", w: "İşletim sistemi", m: "Sanal makinenin işletim sistemi. Üstüne 4 GB takas alanı (swap) eklendi; bellek dolarsa diske taşar." },
+    { b: "systemd", w: "Servis yöneticisi", m: "Programları sunucu açılınca başlatır, çökerse yeniden açar. Projede dört servis: docker, ollama, trsm, tailscaled. Durum: systemctl status trsm." },
+    { b: "Servisler", w: "Docker + PostgreSQL, Ollama + Qwen, Flask + MiniLM", m: "Docker veritabanını kendi kutusunda çalıştırır. Ollama, Qwen 9B'yi bellekte tutar. Flask (uv ile Python 3.12) projenin kodunu çalıştırır. Ayarlar systemd dosyalarında: TRSM_LLM_MODEL, TRSM_OCR_MAX_SIDE=896, TRSM_REQUIRE_LOGIN=1." },
+    { b: "Tailscale", w: "Özel ağ ve internete açılan kapı", m: "Senin ve İlkay'ın bilgisayarını sunucuya şifreli bir özel ağla bağlar. Funnel ise yalnızca Flask'ı internete HTTPS ile açar. Domain ve sertifika gerekmedi." }
+  ];
+  var layersEl = document.getElementById("layers");
+  LAYERS.slice().reverse().forEach(function (l) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "layer"; b.setAttribute("aria-expanded", "false");
+    b.innerHTML = "<b>" + esc(l.b) + '</b><span class="what">' + esc(l.w) + '</span><span class="more" hidden>' + esc(l.m) + "</span>";
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") === "true";
+      b.setAttribute("aria-expanded", open ? "false" : "true");
+      b.querySelector(".more").hidden = open;
+    });
+    layersEl.appendChild(b);
+  });
+
+  // ---------- Süre grafiği (dakika ölçeği 0–17) ----------
+  var ROWS = [
+    { l: "1280 px · tam sayfa", a: 15.15, b: 1.35, total: "16,5 dk" },
+    { l: "896 px · tam sayfa", a: 7.25, b: 0.55, total: "7,8 dk" },
+    { l: "896 px · yarım sayfa kırpılmış", a: 3.6, b: 0.55, total: "~4 dk (tahmin)", est: true }
+  ];
+  var g = document.getElementById("chart"), X0 = 210, W = 500, MAX = 17;
+  function sx(m) { return X0 + (m / MAX) * W; }
+  function el(n, a) { var e = document.createElementNS(SVGNS, n); for (var k in a) e.setAttribute(k, a[k]); return e; }
+  [0, 4, 8, 12, 16].forEach(function (m) {
+    g.appendChild(el("line", { x1: sx(m), x2: sx(m), y1: 10, y2: 150, stroke: "var(--line)", "stroke-width": 1 }));
+    var t = el("text", { x: sx(m), y: 172, "text-anchor": "middle" }); t.textContent = m + " dk"; g.appendChild(t);
+  });
+  ROWS.forEach(function (r, i) {
+    var y = 22 + i * 44;
+    var lbl = el("text", { x: 0, y: y + 17, class: "lbl" }); lbl.textContent = r.l; g.appendChild(lbl);
+    g.appendChild(el("rect", { x: sx(0), y: y, width: sx(r.a) - sx(0), height: 24, rx: 4, fill: "var(--server)", "fill-opacity": r.est ? 0.45 : 1 }));
+    g.appendChild(el("rect", { x: sx(r.a), y: y, width: sx(r.a + r.b) - sx(r.a), height: 24, rx: 4, fill: "var(--accent)", "fill-opacity": r.est ? 0.45 : 1 }));
+    var tt = el("text", { x: sx(r.a + r.b) + 8, y: y + 17 }); tt.textContent = r.total; g.appendChild(tt);
+  });
+
+  // ---------- Sözlük ----------
+  var GLOSS = [
+    ["Sunucu", "7/24 açık duran, ekranı olmayan bir bilgisayar. Bizimki Oracle'ın Frankfurt'taki veri merkezinde."],
+    ["SSH", "Sunucuya uzaktan, şifreli bir terminalle girmek. Kapıyı şifre değil anahtar dosyası açar."],
+    ["Port", "Bir bilgisayardaki kapı numarası. Her program kendi kapısından dinler: Flask 8765, Ollama 11434, PostgreSQL 5434, SSH 22."],
+    ["Güvenlik duvarı", "Hangi kapıların dışarıya açık olduğunu belirleyen kural listesi. Bizde yalnızca 22 açık."],
+    ["Tailscale / tailnet", "Kendi cihazlarını internet üzerinden şifreli tünellerle birbirine bağlayan özel ağ. Cihazlar 100.x.x.x adresi alır."],
+    ["Funnel (reverse proxy)", "Özel ağdaki tek bir servisi internete HTTPS ile açan kapı. Gelen isteği alıp içerideki programa iletir."],
+    ["HTTPS", "Şifreli web bağlantısı. Telefonlar şifresiz (http) adreslere bağlanmayı varsayılan olarak engeller."],
+    ["API", "Programların birbirine soru sorduğu adresler. Örnek: /api/m/giris giriş yapar, /api/m/ozet özet getirir."],
+    ["Token", "Girişten sonra verilen imzalı kart. 12 saat geçerli; telefon her istekte şifre yerine bunu gösterir."],
+    ["Flask", "Python ile web uygulaması yazmaya yarayan kütüphane. TRSM'in kodu demo_server.py'de Flask ile çalışır."],
+    ["Docker / konteyner", "Bir programı ihtiyaç duyduğu her şeyle birlikte kendi kutusunda çalıştırma yöntemi. Veritabanımız böyle çalışıyor."],
+    ["PostgreSQL", "İlişkisel veritabanı: hasta, ziyaret, semptom, ilaç tabloları."],
+    ["systemd", "Linux'un servis yöneticisi. Açılışta servisleri başlatır, çökeni yeniden açar."],
+    ["Ollama", "Dil modellerini bilgisayarda çalıştıran program. Qwen'i bellekte tutar ve isteklere cevap verir."],
+    ["Qwen 3.5 9B", "9 milyar parametreli, görsel de okuyabilen dil modeli. Projede OCR ve açıklama notu için."],
+    ["OCR", "Fotoğraftaki yazıyı metne çevirme. Biz bunu Qwen ile yapıyoruz."],
+    ["MiniLM / embedding", "Cümleyi bir sayı dizisine çeviren küçük model. Anlamca yakın cümlelerin sayıları da yakın olur."],
+    ["Kuyruk ve yoklama (polling)", "Uzun iş hemen bitmeyince sıraya alınır ve iş numarası verilir. Telefon birkaç saniyede bir 'bitti mi?' diye sorar."],
+    ["rsync / deploy", "Değişen kod dosyalarını sunucuya kopyalayıp servisi yeniden başlatmak; yani canlıya almak."],
+    ["Expo / Expo Go", "React Native uygulamasını telefonda hızlıca çalıştırma aracı. Expo Go telefona kurulur, kod Mac'ten gelir."],
+    ["Anonimleştirme", "Kişiyi tanımlayan bilgilerin silinmesi. Bizde üç katman: telefonda karartma, sunucuda temizlik, doktor onayı."],
+    ["KVKK", "Kişisel Verilerin Korunması Kanunu. Sağlık verisi özel nitelikli veridir; gerçek veri için etik onay gerekir."]
+  ];
+  var glossEl = document.getElementById("gloss");
+  function renderGloss(q) {
+    q = (q || "").toLocaleLowerCase("tr");
+    glossEl.innerHTML = "";
+    GLOSS.forEach(function (it) {
+      if (q && (it[0] + " " + it[1]).toLocaleLowerCase("tr").indexOf(q) < 0) return;
+      var d = document.createElement("div"); d.className = "term";
+      d.innerHTML = "<b>" + esc(it[0]) + "</b><span>" + esc(it[1]) + "</span>";
+      glossEl.appendChild(d);
+    });
+    if (!glossEl.children.length) glossEl.innerHTML = '<p class="hint">Bu aramaya uyan terim yok.</p>';
+  }
+  document.getElementById("filter").addEventListener("input", function (e) { renderGloss(e.target.value); });
+  renderGloss("");
+})();
+</script>
+</body>
+</html>

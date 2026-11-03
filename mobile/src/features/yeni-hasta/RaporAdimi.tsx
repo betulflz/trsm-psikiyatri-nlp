@@ -6,7 +6,7 @@ import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fontFamily, radius } from '@/theme/tokens';
 import { Button, Text } from '@/ui';
-import { describeRemoved } from './maske';
+import { describeRemoved, type CropFraction } from './maske';
 import { MaskeEditoru } from './MaskeEditoru';
 import { movePage } from './taslak';
 import type { PageOcr } from './ocr';
@@ -20,13 +20,14 @@ type Props = {
   ocr: Record<string, PageOcr>;
   reading: boolean;
   onRead: (uris: string[]) => Promise<void>;
+  onCrop: (uri: string, crop: CropFraction | null) => void;
   onEditText: (uri: string, metin: string) => void;
   onSubmit: () => void;
   submitting: boolean;
   submitBlocker: string | null; // anonim kaydı engelleyen eksik (ör. doğum tarihi yok)
 };
 
-export function RaporAdimi({ pages, onChange, onBack, onSave, saving, ocr, reading, onRead, onEditText, onSubmit, submitting, submitBlocker }: Props) {
+export function RaporAdimi({ pages, onChange, onBack, onSave, saving, ocr, reading, onRead, onCrop, onEditText, onSubmit, submitting, submitBlocker }: Props) {
   const { colors } = useTheme();
   const picking = useRef(false);
   const [toMask, setToMask] = useState<string[]>([]);
@@ -34,8 +35,9 @@ export function RaporAdimi({ pages, onChange, onBack, onSave, saving, ocr, readi
   const busy = reading || saving || submitting || toMask.length > 0;
   const allRead = pages.length > 0 && pages.every((uri) => ocr[uri]?.status === 'done' && ocr[uri].result?.metin.trim());
 
-  function masked(maskedUri: string) {
+  function masked(maskedUri: string, crop: CropFraction | null) {
     setToMask((queue) => queue.slice(1));
+    onCrop(maskedUri, crop);
     onChange([...pages, maskedUri]);
     setConsent(false);
     void onRead([maskedUri]);

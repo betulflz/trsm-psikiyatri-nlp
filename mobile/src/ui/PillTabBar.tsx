@@ -16,7 +16,7 @@ const ICONS: Record<TabName, LucideIcon> = {
   ayarlar: Settings,
 };
 
-export function PillTabBar({ state, navigation, visible }: BottomTabBarProps & { visible: TabName[] }) {
+export function PillTabBar({ state, emitter, navigateToTab, visible }: BottomTabBarProps & { visible: TabName[] }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const routes = state.routes.filter((route) => visible.includes(route.name as TabName));
@@ -47,8 +47,8 @@ export function PillTabBar({ state, navigation, visible }: BottomTabBarProps & {
               accessibilityState={{ selected: focused }}
               accessibilityLabel={TAB_LABELS[name]}
               onPress={() => {
-                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-                if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+                const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigateToTab(route.key);
               }}
               style={{
                 height: 44,

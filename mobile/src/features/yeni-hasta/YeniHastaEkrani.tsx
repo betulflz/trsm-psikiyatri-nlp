@@ -12,7 +12,7 @@ import { validateKimlik, type KimlikForm } from './dogrulama';
 import { KimlikAdimi } from './KimlikAdimi';
 import { RaporAdimi } from './RaporAdimi';
 import { deleteDraft, saveDraft } from './taslak';
-import { ageOn } from './maske';
+import { ageOn, type CropFraction } from './maske';
 import type { PageOcr } from './ocr';
 import { readReport } from './ocr';
 
@@ -33,6 +33,7 @@ export function YeniHastaEkrani() {
   const [ocr, setOcr] = useState<Record<string, PageOcr>>({});
   const [reading, setReading] = useState(false);
   const readingRef = useRef(false);
+  const crops = useRef<Record<string, CropFraction | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState<AnonymousResult | null>(null);
   const submitBlocker = !form.dogumTarihi
@@ -72,8 +73,12 @@ export function YeniHastaEkrani() {
       for (const uri of uris) {
         setOcr((old) => ({ ...old, [uri]: { status: 'loading' } }));
         try {
-          const result = await readReport(client, uri, (progress) =>
-            setOcr((old) => ({ ...old, [uri]: { status: 'loading', progress } })),
+          const result = await readReport(
+            client,
+            uri,
+            (progress) => setOcr((old) => ({ ...old, [uri]: { status: 'loading', progress } })),
+            undefined,
+            crops.current[uri],
           );
           setOcr((old) => ({ ...old, [uri]: { status: 'done', result } }));
         } catch (error) {
@@ -153,6 +158,7 @@ export function YeniHastaEkrani() {
             ocr={ocr}
             reading={reading}
             onRead={readPages}
+            onCrop={(uri, crop) => { crops.current[uri] = crop; }}
             onEditText={editText}
             onSubmit={submitAnonymous}
             submitting={submitting}

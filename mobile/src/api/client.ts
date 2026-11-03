@@ -38,7 +38,9 @@ export function createApiClient({
         body: upload ? body as FormData : body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
-    } catch {
+    } catch (error) {
+      // İstek ağa çıkmadan da düşebilir (ör. dosya okunamadı); gerçek nedeni Expo terminalinde göster.
+      if (__DEV__) console.warn(`İstek başarısız: ${method} ${path}`, error);
       throw new ApiError('ag', null, 'Sunucuya ulaşılamıyor.');
     } finally {
       clearTimeout(timer);

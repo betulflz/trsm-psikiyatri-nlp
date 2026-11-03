@@ -20,7 +20,7 @@ jest.mock('../taslak', () => ({ movePage: jest.fn() }));
 jest.mock('../MaskeEditoru', () => ({
   MaskeEditoru: ({ uri, onDone }: any) => {
     const { Pressable, Text } = require('react-native');
-    return <Pressable onPress={() => onDone(uri.replace('.jpg', '-maskeli.jpg'))}><Text>{`maske:${uri}`}</Text></Pressable>;
+    return <Pressable onPress={() => onDone(uri.replace('.jpg', '-maskeli.jpg'), { x: 0, y: 0.1, w: 1, h: 0.5 })}><Text>{`maske:${uri}`}</Text></Pressable>;
   },
 }));
 jest.mock('@/theme/ThemeProvider', () => ({ useTheme: () => ({ colors: {} }) }));
@@ -31,7 +31,7 @@ jest.mock('@/ui', () => {
 
 const props = () => ({
   pages: [] as string[], onChange: jest.fn(), onBack: jest.fn(), onSave: jest.fn(), saving: false, reading: false, ocr: {},
-  onRead: jest.fn(async () => {}), onEditText: jest.fn(), onSubmit: jest.fn(), submitting: false, submitBlocker: null as string | null,
+  onRead: jest.fn(async () => {}), onCrop: jest.fn(), onEditText: jest.fn(), onSubmit: jest.fn(), submitting: false, submitBlocker: null as string | null,
 });
 const done = { 'file:///r.jpg': { status: 'done' as const, result: { metin: 'Ad Soyad: [GİZLİ]\nSertralin 50 mg', motor: 'q', temizlenen: { ad: 1, tc: 1 } } } };
 
@@ -46,6 +46,7 @@ it.each(['kamera', 'galeri'])('%s fotoğrafı önce karartılır, sunucuya yaln�
   fireEvent.press(screen.getByText('maske:file:///rapor.jpg'));
   expect(p.onChange).toHaveBeenCalledWith(['file:///rapor-maskeli.jpg']);
   expect(p.onRead).toHaveBeenCalledWith(['file:///rapor-maskeli.jpg']);
+  expect(p.onCrop).toHaveBeenCalledWith('file:///rapor-maskeli.jpg', { x: 0, y: 0.1, w: 1, h: 0.5 });
 });
 
 it('hata görünür ve aynı sayfa yeniden okunabilir', () => {

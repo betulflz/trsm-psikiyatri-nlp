@@ -41,3 +41,5 @@ yarn-error.*
 /android
 
 .env
+# Eski yerel ağ adresinin yedeği (Metro .env* dosyalarını derlemeye çalıştığı için bu adla)
+yerel-api-adresi.local

@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/errors';
-import { createReportUpload, readReport } from '../ocr';
+import { createReportUpload, readReport, toFileUri } from '../ocr';
 
 jest.mock('expo-file-system', () => ({
   File: class {
@@ -54,4 +54,19 @@ describe('readReport', () => {
     await expect(readReport(client as never, 'file:///r.jpg', () => {}, noWait)).rejects.toThrow('Qwen raporu okuyamadı.');
     expect(client.get).toHaveBeenCalledTimes(2);
   });
+});
+
+it('öneksiz dosya yoluna file:// ekler', () => {
+  expect(toFileUri('/private/var/tmp/a.jpg')).toBe('file:///private/var/tmp/a.jpg');
+  expect(toFileUri('file:///a.jpg')).toBe('file:///a.jpg');
+});
+
+it('kırpma alanı form alanı olarak eklenir', () => {
+  const append = jest.spyOn(FormData.prototype, 'append').mockImplementation(() => {});
+  try {
+    createReportUpload('file:///r.jpg', { x: 0, y: 0.1, w: 1, h: 0.5 });
+    expect(append.mock.calls[1]).toEqual(['kirp', '{"x":0,"y":0.1,"w":1,"h":0.5}']);
+  } finally {
+    append.mockRestore();
+  }
 });
